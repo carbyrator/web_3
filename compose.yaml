@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:${SERVER_PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8080
+      DB_URL: jdbc:h2:file:/app/data/students
+    volumes:
+      - students-data:/app/data
+
+volumes:
+  students-data:

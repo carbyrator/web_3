@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<h1>Вход в учёт студентов</h1>
+<form id="loginForm">
+    <label for="loginUsername">Имя пользователя</label>
+    <input id="loginUsername" required autocomplete="username">
+    <label for="loginPassword">Пароль</label>
+    <input id="loginPassword" type="password" required autocomplete="current-password">
+    <button type="submit">Войти</button>
+</form>
+<form id="registerForm">
+    <h2>Регистрация</h2>
+    <label for="registerUsername">Имя пользователя</label>
+    <input id="registerUsername" required minlength="3" maxlength="40" autocomplete="username">
+    <label for="registerEmail">Email</label>
+    <input id="registerEmail" type="email" required maxlength="254" autocomplete="email">
+    <label for="registerPassword">Пароль</label>
+    <input id="registerPassword" type="password" required minlength="6" maxlength="40" autocomplete="new-password">
+    <button type="submit">Зарегистрироваться</button>
+    <p id="authMessage" role="alert"></p>
+</form>
+<script src="js/storage.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>
