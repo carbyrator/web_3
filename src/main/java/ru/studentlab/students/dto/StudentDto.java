@@ -4,8 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import ru.studentlab.students.model.Student;
 import java.time.LocalDate;
 
-// Обычный класс с данными, примерно как struct в C++.
-// Именно эти поля отправляются клиенту в JSON, без внутреннего id из БД.
+// Обычный класс с данными, примерно как struct в C++
+// Именно эти поля отправляются клиенту в JSON, без внутреннего id из БД
 @Schema(requiredProperties = {"name", "group", "isu", "dorm", "room", "expDate", "foreigner"})
 public class StudentDto {
     @Schema(example = "Иван Иванов")

@@ -2,7 +2,6 @@ package ru.studentlab.students.dto;
 
 import java.util.Map;
 
-// Сохраняем старый формат: {"error": {"message": "...", "details": {...}}}.
 public class ApiError {
     public ErrorBody error;
 
