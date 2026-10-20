@@ -1,6 +1,7 @@
+// Показываем сообщения входа и регистрации на странице
 const message = document.getElementById('authMessage');
 
-// Для входа и регистрации access-токен ещё не нужен.
+// Для входа и регистрации access-токен ещё не нужен
 async function sendAuth(path, data) {
     const response = await fetch('/api/auth/' + path, {
         method: 'POST',
@@ -22,6 +23,7 @@ async function sendAuth(path, data) {
     return result;
 }
 
+// После входа сохраняем токены, имя и роль для текущей вкладки
 document.getElementById('loginForm').addEventListener('submit', async function (event) {
     event.preventDefault();
     message.textContent = '';
@@ -40,6 +42,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     }
 });
 
+// После регистрации предлагаем войти под созданным именем
 document.getElementById('registerForm').addEventListener('submit', async function (event) {
     event.preventDefault();
     message.textContent = '';

@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-// EntityManager — объект JPA, через который Hibernate читает и меняет записи БД.
+// Читаем и меняем студентов через Hibernate
 @Repository
 @Transactional(readOnly = true)
 public class StudentRepository {
@@ -21,6 +21,7 @@ public class StudentRepository {
         this.entityManager = entityManager;
     }
 
+    // В запросе используем имя Java-сущности и параметр :isu
     public Student findByIsu(Integer isu) {
         TypedQuery<Student> request = entityManager.createQuery(
                 "select s from Student s where s.isu = :isu", Student.class);
@@ -32,11 +33,13 @@ public class StudentRepository {
         return students.get(0);
     }
 
+    // К фильтрам добавляем сортировку и при необходимости ограничение страницы
     public List<Student> findAll(StudentSearch search) {
         Map<String, Object> parameters = new LinkedHashMap<>();
         String where = makeWhere(search, parameters);
         String order = " order by s." + search.sortField + " " + search.sortDirection;
         if (!search.sortField.equals("id")) {
+            // Внутренний ключ задаёт порядок при одинаковых значениях основного поля
             order += ", s.id asc";
         }
         TypedQuery<Student> request = entityManager.createQuery(
@@ -51,6 +54,7 @@ public class StudentRepository {
         return request.getResultList();
     }
 
+    // Считаем все совпадения без ограничения размером страницы
     public long count(StudentSearch search) {
         Map<String, Object> parameters = new LinkedHashMap<>();
         String where = makeWhere(search, parameters);
@@ -63,22 +67,26 @@ public class StudentRepository {
     }
 
     @Transactional
+    // Новую сущность добавляем, у существующей обновляем поля
     public Student saveAndFlush(Student student) {
         if (student.getId() == null) {
-            entityManager.persist(student);  // INSERT: новая запись.
+            entityManager.persist(student);  // Добавляем новую запись
         } else {
-            student = entityManager.merge(student);  // UPDATE: существующая запись.
+            student = entityManager.merge(student);  // Обновляем существующую запись
         }
+        // Отправляем изменения в базу, окончательно их закрепит транзакция
         entityManager.flush();
         return student;
     }
 
     @Transactional
+    // Для удаления Hibernate нужен объект, связанный с текущей работой с базой
     public void delete(Student student) {
         entityManager.remove(entityManager.merge(student));
         entityManager.flush();
     }
 
+    // Строка содержит имена проверенных полей, значения передаём отдельно
     private String makeWhere(StudentSearch search, Map<String, Object> parameters) {
         String where = " where 1 = 1";
         for (String field : search.filters.keySet()) {
@@ -87,20 +95,21 @@ public class StudentRepository {
                 where += " and s.foreigner = :foreigner";
                 parameters.put("foreigner", Boolean.parseBoolean(value));
             } else {
-                where += " and " + contains(field, field);
+                where += " and " + contains(field);
                 parameters.put(field, pattern(value));
             }
         }
-        // В запрос попадают только проверенные имена полей из StudentSearch.
-        // Значения пользователя передаются отдельно через setParameter.
+        // В запрос попадают только проверенные имена полей из StudentSearch
+        // Значения пользователя передаются отдельно через setParameter
         return where;
     }
 
-    private String contains(String field, String parameter) {
-        // Приведение к строке нужно для поиска по части ИСУ, номера общежития и даты.
-        return "lower(cast(s." + field + " as string)) like :" + parameter + " escape '\\'";
+    private String contains(String field) {
+        // Приведение к строке нужно для поиска по части ИСУ, номера общежития и даты
+        return "lower(cast(s." + field + " as string)) like :" + field + " escape '\\'";
     }
 
+    // Процент и подчёркивание из ввода ищем буквально, а не как шаблон
     private String pattern(String value) {
         value = value.toLowerCase(Locale.ROOT);
         value = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");

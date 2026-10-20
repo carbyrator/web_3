@@ -12,7 +12,7 @@ import ru.studentlab.students.dto.ApiError;
 import java.io.IOException;
 import java.util.Map;
 
-// Ошибки Security возникают до контроллера. Возвращаем тот же формат JSON.
+// Возвращаем ошибки входа и прав в общем формате JSON
 @Component
 public class SecurityErrors implements AuthenticationEntryPoint, AccessDeniedHandler {
     private final ObjectMapper mapper;

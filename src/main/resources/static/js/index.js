@@ -1,10 +1,11 @@
-// Получаем тело таблицы и кнопку добавления студента из DOM по их идентификаторам.
+// Получаем тело таблицы и кнопку добавления студента из DOM по их идентификаторам
 const tableBody = document.getElementById('studentsTableBody');
 const addButton = document.getElementById('addStudentButton');
 const filterForm = document.getElementById('filterForm');
 const filterStatus = document.getElementById('filterStatus');
 let activeFilters = {};
 
+// Обычному пользователю не показываем кнопки изменения
 addButton.hidden = !isAdmin();
 document.getElementById('currentUser').textContent =
     sessionStorage.getItem('username') + ' (' + sessionStorage.getItem('role') + ')';
@@ -14,26 +15,33 @@ addButton.addEventListener('click', function () {
     window.location.href = 'form.html';
 });
 
+// Собираем непустые поля формы обычным циклом
 filterForm.addEventListener('submit', function (event) {
     event.preventDefault();
-    activeFilters = Object.fromEntries(
-        [...new FormData(filterForm)].filter(([, value]) => String(value).trim() !== '')
-    );
+    activeFilters = {};
+    for (let i = 0; i < filterForm.elements.length; i++) {
+        const input = filterForm.elements[i];
+        if (input.name && input.value.trim() !== '') {
+            activeFilters[input.name] = input.value.trim();
+        }
+    }
     showStudents();
 });
 
+// При сбросе загружаем полный список
 filterForm.addEventListener('reset', function () {
     activeFilters = {};
     showStudents();
 });
 
-// Создаём ячейку таблицы, записываем в неё текст и добавляем в указанную строку.
+// Создаём ячейку таблицы, записываем в неё текст и добавляем в указанную строку
 function addCell(row, text) {
     const cell = document.createElement('td');
     cell.textContent = text;
     row.appendChild(cell);
 }
 
+// Получаем список с сервера и заново заполняем таблицу
 async function showStudents() {
     let students;
     try {
@@ -44,29 +52,34 @@ async function showStudents() {
         return;
     }
 
-    filterStatus.textContent = Object.keys(activeFilters).length
-        ? `Найдено: ${students.length}` : '';
+    filterStatus.textContent = '';
+    if (Object.keys(activeFilters).length > 0) {
+        filterStatus.textContent = 'Найдено: ' + students.length;
+    }
 
-    // Очищаем таблицу перед повторным построением, чтобы строки не дублировались.
+    // Очищаем таблицу перед повторным построением, чтобы строки не дублировались
     tableBody.innerHTML = '';
 
-    // Если записей нет, показываем одну ячейку на всю ширину таблицы.
+    // Если записей нет, показываем одну ячейку на всю ширину таблицы
     if (students.length === 0) {
         const row = document.createElement('tr');
         const cell = document.createElement('td');
         cell.colSpan = 8;
-        cell.textContent = Object.keys(activeFilters).length ? 'Ничего не найдено' : 'Нет студентов';
+        cell.textContent = 'Нет студентов';
+        if (Object.keys(activeFilters).length > 0) {
+            cell.textContent = 'Ничего не найдено';
+        }
         row.appendChild(cell);
         tableBody.appendChild(row);
         return;
     }
 
-    // Для каждого студента создаём отдельную строку таблицы.
+    // Для каждого студента создаём отдельную строку таблицы
     for (let i = 0; i < students.length; i++) {
         const student = students[i];
         const row = document.createElement('tr');
 
-        // Добавляем в строку основные данные студента.
+        // Добавляем в строку основные данные студента
         addCell(row, student.name);
         addCell(row, student.group);
         addCell(row, student.isu);
@@ -76,7 +89,7 @@ async function showStudents() {
 
         let statusText;
 
-        // Преобразуем логическое значение foreigner.
+        // Преобразуем логическое значение foreigner
         if (student.foreigner === true) {
             statusText = 'Иностранец';
         } else {
@@ -84,10 +97,10 @@ async function showStudents() {
         }
         addCell(row, statusText);
 
-        // Создаём отдельную ячейку для кнопок управления записью.
+        // Создаём отдельную ячейку для кнопок управления записью
         const actionsCell = document.createElement('td');
 
-        // Кнопка открывает страницу с подробной информацией о выбранном студенте.
+        // Кнопка открывает страницу с подробной информацией о выбранном студенте
         const detailsButton = document.createElement('button');
         detailsButton.type = 'button';
         detailsButton.textContent = 'Подробнее';
@@ -95,7 +108,7 @@ async function showStudents() {
             window.location.href = 'student.html?isu=' + student.isu;
         });
 
-        // Кнопка открывает форму редактирования, ИСУ передаётся через параметр URL.
+        // Кнопка открывает форму редактирования, ИСУ передаётся через параметр URL
         const editButton = document.createElement('button');
         editButton.type = 'button';
         editButton.textContent = 'Редактировать';
@@ -103,7 +116,7 @@ async function showStudents() {
             window.location.href = 'form.html?isu=' + student.isu;
         });
 
-        // После подтверждения удаляем студента и заново строим таблицу.
+        // После подтверждения удаляем студента и заново строим таблицу
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
         deleteButton.textContent = 'Удалить';
@@ -119,7 +132,7 @@ async function showStudents() {
             }
         });
 
-        // Добавляем кнопки в ячейку действий, а ячейку в строку.
+        // Добавляем кнопки в ячейку действий, а ячейку в строку
         if (isAdmin()) {
             actionsCell.appendChild(deleteButton);
             actionsCell.appendChild(editButton);
@@ -127,7 +140,7 @@ async function showStudents() {
         actionsCell.appendChild(detailsButton);
         row.appendChild(actionsCell);
 
-        // Добавляем полностью сформированную строку в таблицу на странице.
+        // Добавляем полностью сформированную строку в таблицу на странице
         tableBody.appendChild(row);
     }
 }

@@ -21,11 +21,11 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+// Получаем запросы по студентам и передаём работу сервису
 @RestController
 @RequestMapping("/api/requests")
 @Tag(name = "Студенты")
 @SecurityRequirement(name = "bearerAuth")
-// Контроллер получает HTTP-запрос, вызывает сервис и возвращает ответ.
 public class StudentController {
     private final StudentService service;
     private final ObjectMapper mapper;
@@ -35,6 +35,7 @@ public class StudentController {
         this.mapper = mapper;
     }
 
+    // Параметры после знака вопроса задают фильтры и страницу
     @GetMapping
     @Operation(summary = "Список студентов", description = "Ответ — массив, как в лабораторной №2. "
             + "Фильтры объединяются через И. Без page и size возвращается весь список.")
@@ -56,12 +57,14 @@ public class StudentController {
         return searchResult(mapper.valueToTree(filters));
     }
 
+    // ИСУ берём из адреса, например /api/requests/505301
     @GetMapping("/{isu}")
     @Operation(summary = "Получить студента по ИСУ")
     public StudentDto get(@PathVariable Integer isu) {
         return service.findByIsu(isu);
     }
 
+    // После создания возвращаем статус 201 и адрес новой записи
     @PostMapping
     @Operation(summary = "Создать студента")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -71,6 +74,7 @@ public class StudentController {
         return ResponseEntity.created(URI.create("/api/requests/" + student.isu)).body(student);
     }
 
+    // Полная замена требует все обязательные поля
     @PutMapping("/{isu}")
     @Operation(summary = "Полностью заменить данные студента", description = "Нужны все обязательные поля. "
             + "Если notes не передано, заметка очищается. ИСУ можно изменить, если новый номер свободен.")
@@ -80,6 +84,7 @@ public class StudentController {
         return service.update(isu, input, false);
     }
 
+    // Частичное изменение сохраняет остальные поля студента
     @PatchMapping("/{isu}")
     @Operation(summary = "Изменить отдельные поля", description = "Передаются только изменяемые поля, "
             + "например {\"room\":\"102\"}. Пустой объект и null вместо поля не допускаются.")
@@ -87,6 +92,7 @@ public class StudentController {
         return service.update(isu, input, true);
     }
 
+    // После удаления возвращаем статус 204 без тела ответа
     @DeleteMapping("/{isu}")
     @Operation(summary = "Удалить студента")
     public ResponseEntity<Void> delete(@PathVariable Integer isu) {
@@ -94,7 +100,7 @@ public class StudentController {
         return ResponseEntity.noContent().build();
     }
 
-    // QUERY нужен старому frontend. Обычные методы обрабатываются выше.
+    // Поддерживаем запрос QUERY с фильтрами в JSON из прошлой лабораторной
     @Hidden
     @RequestMapping
     public ResponseEntity<List<StudentDto>> legacyQuery(HttpServletRequest request,
@@ -108,6 +114,7 @@ public class StudentController {
         return searchResult(filters);
     }
 
+    // Данные списка идут в JSON, количество и страница в заголовки
     private ResponseEntity<List<StudentDto>> searchResult(JsonNode filters) {
         StudentService.SearchResult result = service.findAll(new StudentSearch(filters));
         ResponseEntity.BodyBuilder response = ResponseEntity.ok();

@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+// Проверяем токен до обращения к защищённому адресу
 public class JwtFilter extends OncePerRequestFilter {
     private final JwtService jwt;
     private final UserRepository users;
@@ -28,6 +29,7 @@ public class JwtFilter extends OncePerRequestFilter {
         this.errors = errors;
     }
 
+    // Читаем заголовок Authorization и проверяем учётную запись
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
@@ -38,14 +40,12 @@ public class JwtFilter extends OncePerRequestFilter {
                     throw new IllegalArgumentException();
                 }
                 String token = header.substring(7);
-                if (!jwt.isAccessToken(token)) {
-                    throw new IllegalArgumentException();
-                }
-                String username = jwt.getUsername(token);
+                String username = jwt.readUsername(token, "access");
                 User user = users.findByUsername(username);
                 if (user == null) {
                     throw new IllegalArgumentException();
                 }
+                // Spring ожидает имя роли с префиксом ROLE_
                 List<GrantedAuthority> roles = new ArrayList<>();
                 roles.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
                 UsernamePasswordAuthenticationToken authentication =
@@ -56,6 +56,7 @@ public class JwtFilter extends OncePerRequestFilter {
                 return;
             }
         }
+        // Продолжаем запрос, дальнейшие права проверяет Spring Security
         chain.doFilter(request, response);
     }
 }

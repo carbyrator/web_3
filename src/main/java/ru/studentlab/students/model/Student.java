@@ -3,10 +3,11 @@ package ru.studentlab.students.model;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 
-// Hibernate хранит объекты этого класса в таблице students.
+// Один объект соответствует одной записи в таблице students
 @Entity
 @Table(name = "students")
 public class Student {
+    // Внутренний ключ создаёт база, он отличается от ИСУ
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -17,6 +18,7 @@ public class Student {
     @Column(name = "student_group", nullable = false, length = 5)
     private String group;
 
+    // ИСУ обязателен и не может повторяться
     @Column(nullable = false, unique = true)
     private Integer isu;
 
@@ -35,8 +37,9 @@ public class Student {
     @Column(nullable = false, columnDefinition = "text")
     private String notes = "";
 
-    // Внутренний id не меняется, даже если пользователь исправил ИСУ.
-    // get... читает закрытое поле, set... меняет его. Это обычные методы класса.
+    // Внутренний id не меняется, даже если пользователь исправил ИСУ
+    // get... читает закрытое поле, set... меняет его. Это обычные методы класса
+    // Методы ниже позволяют читать и менять закрытые поля
     public Long getId() { return id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

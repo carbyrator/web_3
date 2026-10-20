@@ -8,13 +8,13 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 
-// Пользователи хранятся в нашей БД; стандартный тестовый пользователь Spring не нужен.
+// Используем пользователей из своей базы вместо тестового пользователя Spring
 @SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class)
 @OpenAPIDefinition(info = @Info(title = "API студентов", version = "1.0",
         description = "Студенты, пользователи, JWT и роли USER/ADMIN."))
 @SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
 public class StudentsApplication {
-    // Как и в C++, выполнение начинается с main. Здесь запускается Spring Boot.
+    // Метод main запускает приложение Spring Boot
     public static void main(String[] args) {
         SpringApplication.run(StudentsApplication.class, args);
     }

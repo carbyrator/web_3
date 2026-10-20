@@ -7,7 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
-// Параметры списка. Сам запрос к БД находится в StudentRepository.
+// Проверяем фильтры, сортировку и параметры страниц
 public class StudentSearch {
     public Map<String, String> filters = new LinkedHashMap<>();
     public String sortField = "id";
@@ -15,6 +15,7 @@ public class StudentSearch {
     public Integer page;
     public int size = 20;
 
+    // Разбираем параметры один раз перед обращением к базе
     public StudentSearch(JsonNode input) {
         if (input == null || !input.isObject()) {
             throw new ApiException(400, "Ожидался JSON-объект с фильтрами");
@@ -23,6 +24,7 @@ public class StudentSearch {
         while (fields.hasNext()) {
             String original = fields.next();
             String key = original;
+            // Старое название фильтра приводим к названию поля модели
             if (key.equals("dormitory")) {
                 key = "dorm";
             }
@@ -56,6 +58,7 @@ public class StudentSearch {
                 }
             }
 
+            // Служебные параметры не добавляем в условия поиска
             if (key.equals("sort")) {
                 readSort(value);
             } else if (key.equals("page")) {
@@ -69,14 +72,17 @@ public class StudentSearch {
                 filters.put(key, value);
             }
         }
+        // Переданный размер без номера страницы включает первую страницу
         if (page == null && input.has("size")) {
             page = 0;
         }
+        // Умножаем в long, чтобы заранее проверить переполнение смещения
         if (page != null && (long) page * size > Integer.MAX_VALUE) {
             throw error("page", "Слишком большой номер страницы");
         }
     }
 
+    // Разрешаем только поля студента и направления asc или desc
     private void readSort(String value) {
         String[] parts = value.split(",", -1);
         if (parts.length > 2 || !StudentValidator.FIELDS.contains(parts[0])) {
@@ -91,19 +97,21 @@ public class StudentSearch {
         }
     }
 
+    // Сначала проверяем запись числа, затем преобразование и диапазон
     private int readNumber(String key, String value, int min, int max) {
+        if (!value.matches("[0-9]+")) {
+            throw error(key, "Ожидалось целое число от " + min + " до " + max);
+        }
+        int result;
         try {
-            if (!value.matches("[0-9]+")) {
-                throw new NumberFormatException();
-            }
-            int result = Integer.parseInt(value);
-            if (result < min || result > max) {
-                throw new NumberFormatException();
-            }
-            return result;
+            result = Integer.parseInt(value);
         } catch (NumberFormatException e) {
             throw error(key, "Ожидалось целое число от " + min + " до " + max);
         }
+        if (result < min || result > max) {
+            throw error(key, "Ожидалось целое число от " + min + " до " + max);
+        }
+        return result;
     }
 
     private ApiException error(String field, String message) {

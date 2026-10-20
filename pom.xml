@@ -60,7 +60,7 @@
             <scope>runtime</scope>
         </dependency>
     </dependencies>
-    <!-- Основной адрес Maven Central в этой среде возвращает 403. -->
+    <!-- Основной адрес Maven Central в этой среде возвращает 403 -->
     <repositories>
         <repository>
             <id>central</id>

@@ -13,17 +13,20 @@ import java.util.List;
 import ru.studentlab.students.service.JwtService;
 import ru.studentlab.students.repository.UserRepository;
 
+// Здесь задаём открытые адреса и права для каждой роли
 @Configuration
 public class SecurityConfig {
     @Bean
     public SecurityFilterChain security(HttpSecurity http, JwtService jwt,
                                         UserRepository users, SecurityErrors errors) throws Exception {
         JwtFilter jwtFilter = new JwtFilter(jwt, users, errors);
-        // Короткие лямбды здесь — стандартный способ настройки Spring Security.
-        http.csrf(csrf -> csrf.disable()); // API использует Bearer, а не cookie-сессию.
+        // Стрелка передаёт Spring небольшой блок настроек
+        http.csrf(csrf -> csrf.disable()); // Вход проверяем по токену из заголовка
+        // Сервер не хранит сеанс входа, каждый запрос содержит токен
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.exceptionHandling(handler -> handler
                 .authenticationEntryPoint(errors).accessDeniedHandler(errors));
+        // Чтение доступно обеим ролям, изменение только администратору
         http.authorizeHttpRequests(rules -> rules
                 .requestMatchers("/", "/*.html", "/js/**", "/css/**", "/assets/**", "/error",
                         "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
@@ -38,7 +41,7 @@ public class SecurityConfig {
 
     @Bean
     public WebSecurityCustomizer firewall() {
-        // QUERY был в лабораторной №2, поэтому разрешаем его в firewall.
+        // Разрешаем метод QUERY из предыдущей лабораторной
         StrictHttpFirewall firewall = new StrictHttpFirewall();
         firewall.setAllowedHttpMethods(List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "QUERY"));
         return web -> web.httpFirewall(firewall);

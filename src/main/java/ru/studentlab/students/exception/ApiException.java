@@ -2,7 +2,7 @@ package ru.studentlab.students.exception;
 
 import java.util.Map;
 
-// Наша ошибка: сообщение, HTTP-статус и пояснения по полям.
+// Наша ошибка хранит статус, сообщение и пояснения по полям
 public class ApiException extends RuntimeException {
     private final int status;
     private final Map<String, String> details;

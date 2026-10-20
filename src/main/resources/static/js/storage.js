@@ -1,14 +1,17 @@
 const API_URL = '/api/requests';
 
+// Токены хранятся только в текущей вкладке браузера
 function saveTokens(tokens) {
     sessionStorage.setItem('accessToken', tokens.accessToken);
     sessionStorage.setItem('refreshToken', tokens.refreshToken);
 }
 
+// Эта проверка управляет кнопками, реальные права проверяет сервер
 function isAdmin() {
     return sessionStorage.getItem('role') === 'ADMIN';
 }
 
+// При выходе удаляем данные входа из текущей вкладки
 function logout() {
     sessionStorage.removeItem('accessToken');
     sessionStorage.removeItem('refreshToken');
@@ -17,6 +20,7 @@ function logout() {
     window.location.href = 'login.html';
 }
 
+// Получаем новую пару токенов по сохранённому токену обновления
 async function refreshAccess() {
     const refreshToken = sessionStorage.getItem('refreshToken');
     if (!refreshToken) {
@@ -34,6 +38,7 @@ async function refreshAccess() {
     return true;
 }
 
+// Добавляем токен к запросу и одинаково обрабатываем ошибки сервера
 async function apiRequest(url, options = {}) {
     if (!options.headers) {
         options.headers = {};
@@ -45,7 +50,7 @@ async function apiRequest(url, options = {}) {
     let response;
     try {
         response = await fetch(url, options);
-        // При истечении access-токена обновляем его и повторяем запрос один раз.
+        // При истечении access-токена обновляем его и повторяем запрос один раз
         if (response.status === 401 && await refreshAccess()) {
             options.headers.Authorization = 'Bearer ' + sessionStorage.getItem('accessToken');
             response = await fetch(url, options);
@@ -70,13 +75,14 @@ async function apiRequest(url, options = {}) {
     return result;
 }
 
+// Страницы студентов доступны после входа
 if (!window.location.pathname.endsWith('login.html') && !sessionStorage.getItem('accessToken')) {
     window.location.replace('login.html');
 }
 
+// При большом числе фильтров используем прежний метод QUERY с телом JSON
 function getStudents(filters = {}) {
-    const entries = Object.entries(filters);
-    if (entries.length > 3) {
+    if (Object.keys(filters).length > 3) {
         return apiRequest(API_URL, {
             method: 'QUERY',
             headers: {'Content-Type': 'application/json'},
@@ -84,13 +90,18 @@ function getStudents(filters = {}) {
         });
     }
     const query = new URLSearchParams(filters).toString();
-    return apiRequest(query ? `${API_URL}?${query}` : API_URL);
+    if (query !== '') {
+        return apiRequest(API_URL + '?' + query);
+    }
+    return apiRequest(API_URL);
 }
 
+// ИСУ в адресе указывает, какого студента получить
 function getStudentByIsu(isu) {
-    return apiRequest(`${API_URL}/${encodeURIComponent(isu)}`);
+    return apiRequest(API_URL + '/' + encodeURIComponent(isu));
 }
 
+// Передаём все поля нового студента в теле запроса
 function addStudent(student) {
     return apiRequest(API_URL, {
         method: 'POST',
@@ -99,14 +110,16 @@ function addStudent(student) {
     });
 }
 
+// Исходный ИСУ нужен, даже если пользователь меняет его в форме
 function updateStudent(oldIsu, student) {
-    return apiRequest(`${API_URL}/${encodeURIComponent(oldIsu)}`, {
+    return apiRequest(API_URL + '/' + encodeURIComponent(oldIsu), {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(student)
     });
 }
 
+// Удаляем запись по ИСУ
 function deleteStudent(isu) {
-    return apiRequest(`${API_URL}/${encodeURIComponent(isu)}`, {method: 'DELETE'});
+    return apiRequest(API_URL + '/' + encodeURIComponent(isu), {method: 'DELETE'});
 }

@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-// Здесь описаны действия над студентами. HTTP и SQL находятся в других классах.
+// Здесь задаём порядок проверок и действий над студентами
 @Service
 @Transactional(readOnly = true)
 public class StudentService {
@@ -21,12 +21,13 @@ public class StudentService {
     private final StudentRepository repository;
     private final StudentValidator validator;
 
-    // Spring передаёт готовые repository и validator в конструктор.
+    // Spring передаёт готовые repository и validator в конструктор
     public StudentService(StudentRepository repository, StudentValidator validator) {
         this.repository = repository;
         this.validator = validator;
     }
 
+    // Получаем сущности из базы и превращаем их в данные ответа
     public SearchResult findAll(StudentSearch search) {
         List<Student> students = repository.findAll(search);
         List<StudentDto> result = new ArrayList<>();
@@ -35,17 +36,19 @@ public class StudentService {
         }
         long total = result.size();
         if (search.page != null) {
+            // При страницах нужно общее число совпадений, а не длина страницы
             total = repository.count(search);
         }
         return new SearchResult(result, total, search.page, search.size);
     }
 
+    // Внешний API работает с ИСУ, а не с внутренним ключом базы
     public StudentDto findByIsu(Integer isu) {
         Student student = findEntity(isu);
         return new StudentDto(student);
     }
 
-    // Если операция завершится ошибкой, транзакция отменит изменения в БД.
+    // При нашей ошибке транзакция отменит изменения в базе
     @Transactional
     public StudentDto create(JsonNode input) {
         StudentDto data = validator.read(input, null);
@@ -60,13 +63,16 @@ public class StudentService {
     }
 
     @Transactional
+    // Флаг partial отличает PATCH от полной замены PUT
     public StudentDto update(Integer isu, JsonNode input, boolean partial) {
         Student student = findEntity(isu);
         StudentDto oldData = null;
+        // Для PATCH сначала копируем старые значения в отдельный объект
         if (partial) {
             oldData = new StudentDto(student);
         }
         StudentDto data = validator.read(input, oldData);
+        // Новый ИСУ может совпадать со старым, но не с ИСУ другого студента
         Student other = repository.findByIsu(data.isu);
         if (other != null && !other.getId().equals(student.getId())) {
             duplicateIsu();
@@ -78,12 +84,14 @@ public class StudentService {
     }
 
     @Transactional
+    // Сначала ищем запись, чтобы вернуть 404 для отсутствующего студента
     public void delete(Integer isu) {
         Student student = findEntity(isu);
         repository.delete(student);
         log.info("Удалён студент с ИСУ {}", isu);
     }
 
+    // Общий поиск для чтения, изменения и удаления
     private Student findEntity(Integer isu) {
         Student student = repository.findByIsu(isu);
         if (student == null) {
@@ -92,6 +100,7 @@ public class StudentService {
         return student;
     }
 
+    // В сущность записываем только уже проверенные значения
     private void copyFields(StudentDto data, Student student) {
         student.setName(data.name);
         student.setGroup(data.group);
@@ -103,12 +112,13 @@ public class StudentService {
         student.setNotes(data.notes);
     }
 
+    // При занятом ИСУ возвращаем конфликт 409 и пояснение поля
     private void duplicateIsu() {
         throw new ApiException(409, "Студент с таким ИСУ уже существует",
                 Map.of("isu", "Студент с таким ИСУ уже существует"));
     }
 
-    // Список и его общее количество. В JSON уходит только students.
+    // Список и его количество нужны контроллеру для тела ответа и заголовков
     public static class SearchResult {
         public List<StudentDto> students;
         public long total;

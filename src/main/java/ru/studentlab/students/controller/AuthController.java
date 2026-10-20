@@ -12,6 +12,7 @@ import ru.studentlab.students.service.AuthService;
 import java.security.Principal;
 import java.util.Map;
 
+// Принимаем запросы регистрации, входа и обновления токенов
 @RestController
 @RequestMapping("/api/auth")
 @Tag(name = "Авторизация")
@@ -24,6 +25,7 @@ public class AuthController {
         this.users = users;
     }
 
+    // Регистрация всегда создаёт обычного пользователя
     @PostMapping("/register")
     @Operation(summary = "Регистрация пользователя с ролью USER")
     public ResponseEntity<Void> register(@RequestBody RegisterRequest input) {
@@ -31,18 +33,21 @@ public class AuthController {
         return ResponseEntity.status(201).build();
     }
 
+    // При верном пароле возвращаем пару токенов
     @PostMapping("/login")
     @Operation(summary = "Вход: access- и refresh-токены")
     public TokenResponse login(@RequestBody LoginRequest input) {
         return auth.login(input);
     }
 
+    // Продлеваем вход по токену обновления
     @PostMapping("/refresh")
     @Operation(summary = "Получить новые токены по refresh-токену")
     public TokenResponse refresh(@RequestBody RefreshRequest input) {
         return auth.refresh(input);
     }
 
+    // Берём имя из проверенного токена, а роль читаем из базы
     @GetMapping("/me")
     @Operation(summary = "Имя и роль текущего пользователя")
     @SecurityRequirement(name = "bearerAuth")

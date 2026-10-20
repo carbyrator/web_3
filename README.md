@@ -4,33 +4,50 @@ Backend учёта студентов на Spring Boot + Hibernate/JPA: реля
 
 [Методичка для двух участников: файлы, объяснения и вопросы к защите](guide.md).
 
-## Запуск на macOS
+## Запуск в IntelliJ IDEA
 
-Нужна JDK 17–25. Сначала скопировать настройки:
+Нужна JDK 17–25 и файл `.env` в корне проекта. Если `.env` уже есть, используй его. Пример настроек приведён ниже.
 
-```sh
-cp .env.example .env
-```
+1. Выбери **File → Open** и открой `pom.xml` как проект.
+2. Выбери установленную JDK для проекта и дождись загрузки зависимостей Maven.
+3. Открой `src/main/java/ru/studentlab/students/StudentsApplication.java`.
+4. Нажми зелёный треугольник рядом с методом `main` и выбери **Run**.
 
-В `.env` заменить JWT_SECRET (минимум 32 байта) и ADMIN_PASSWORD. После этого из папки проекта:
+Рабочая папка запуска должна быть корнем проекта `web_3`, где лежат `pom.xml` и `.env`. Тогда приложение прочитает настройки и откроет вашу локальную базу. В настройках Maven используй **Bundled Maven**. Обёртка Maven Wrapper для этого способа не нужна.
 
-```sh
-./mvnw spring-boot:run
-```
+В `pom.xml` указано публичное зеркало Maven Central: основной адрес при проверке возвращал 403. Отдельный сервер БД не нужен: используется файловая H2.
 
-Maven скачает зависимости при первом запуске. В pom.xml указано публичное зеркало Maven Central: основной адрес при проверке возвращал 403. Отдельный сервер БД не нужен: используется файловая H2.
+Запуск основного класса описан в [документации IntelliJ IDEA](https://www.jetbrains.com/help/idea/running-applications.html).
 
 - Приложение: http://localhost:8080/
 - Swagger: http://localhost:8080/swagger-ui.html
 - OpenAPI: http://localhost:8080/v3/api-docs
 
-Остановка: `Ctrl+C` в терминале.
+Остановка: кнопка **Stop** в окне запуска IntelliJ IDEA.
 
 Данные хранятся в `data/students.mv.db` и сохраняются после перезапуска. Запускай проект из одной и той же папки. Hibernate сам создаёт таблицу при первом запуске.
 
 ## Настройки
 
-Параметры находятся в `src/main/resources/application.properties`. Для своих настроек скопируй `.env.example` в `.env` и измени порт, подключение к H2 или уровень логирования. `.env` читается автоматически; кавычки и `export` не нужны.
+Параметры находятся в `src/main/resources/application.properties`. Свои значения указывай в `.env` в корне проекта. Файл читается автоматически; кавычки и `export` не нужны. `.env` исключён из Git.
+
+Пример конфигурации для ТЗ хранится здесь, отдельный `.env.example` не нужен:
+
+```properties
+SERVER_PORT=8080
+DB_URL=jdbc:h2:file:./data/students
+DB_USERNAME=sa
+DB_PASSWORD=
+APP_LOG_LEVEL=INFO
+JWT_SECRET=change-this-secret-key-at-least-32-characters
+JWT_ACCESS_EXPIRATION=900000
+JWT_REFRESH_EXPIRATION=604800000
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change-me-admin
+```
+
+При первом создании `.env` задай свой JWT_SECRET длиной минимум 32 байта и пароль администратора. Пример выше не заменяет существующие настройки.
 
 Сервер пишет сообщения об операциях и ошибках в консоль.
 

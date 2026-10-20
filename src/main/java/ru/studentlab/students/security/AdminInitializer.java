@@ -11,7 +11,7 @@ import ru.studentlab.students.repository.UserRepository;
 import ru.studentlab.students.service.AuthService;
 import java.nio.charset.StandardCharsets;
 
-// Администратора создаём из .env. При смене пароля обновляем его при запуске.
+// При запуске создаём администратора или обновляем его пароль из .env
 @Component
 public class AdminInitializer implements CommandLineRunner {
     @Value("${app.admin.username:}") private String username;
@@ -25,6 +25,7 @@ public class AdminInitializer implements CommandLineRunner {
         this.users = users;
     }
 
+    // Spring вызывает этот метод после запуска приложения
     @Override
     public void run(String... args) {
         if (username.isBlank() && email.isBlank() && password.isBlank()) {
@@ -37,12 +38,14 @@ public class AdminInitializer implements CommandLineRunner {
                 || password.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new IllegalArgumentException("Пароль администратора: от 6 до 40 символов и не более 72 байт UTF-8");
         }
+        // Существующего администратора не создаём повторно
         User existing = users.findByUsername(username.trim());
         if (existing != null) {
             if (existing.getRole() != Role.ADMIN) {
                 throw new IllegalArgumentException("Имя администратора занято обычным пользователем");
             }
             BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+            // Если пароль не менялся, сохранять новый хеш не нужно
             if (!encoder.matches(password, existing.getPassword())) {
                 existing.setPassword(encoder.encode(password));
                 users.saveAndFlush(existing);

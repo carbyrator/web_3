@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
+// Регистрируем пользователей, проверяем пароли и выдаём токены
 @Service
 @Transactional(readOnly = true)
 public class AuthService {
@@ -31,7 +32,7 @@ public class AuthService {
 
     @Transactional
     public void register(RegisterRequest input) {
-        // Публичная регистрация всегда создаёт USER.
+        // Публичная регистрация всегда создаёт USER
         createUser(input, Role.USER);
     }
 
@@ -40,6 +41,7 @@ public class AuthService {
         createUser(input, Role.ADMIN);
     }
 
+    // Проверяем данные до записи пользователя в базу
     private void createUser(RegisterRequest input, Role role) {
         Map<String, String> errors = new LinkedHashMap<>();
         if (input.username == null || input.username.trim().length() < 3
@@ -58,6 +60,7 @@ public class AuthService {
         if (!errors.isEmpty()) {
             throw new ApiException(422, "Некорректные данные пользователя", errors);
         }
+        // Убираем крайние пробелы и приводим почту к нижнему регистру
         String username = input.username.trim();
         String email = input.email.trim().toLowerCase(Locale.ROOT);
         if (users.existsByUsername(username)) {
@@ -69,12 +72,14 @@ public class AuthService {
         User user = new User();
         user.setUsername(username);
         user.setEmail(email);
+        // BCrypt сохраняет хеш с солью вместо исходного пароля
         user.setPassword(passwords.encode(input.password));
         user.setRole(role);
         users.saveAndFlush(user);
         log.info("Создан пользователь с ролью {}", role);
     }
 
+    // Ищем пользователя по имени и сравниваем пароль с хешем
     public TokenResponse login(LoginRequest input) {
         if (input.username == null || input.username.isBlank()
                 || input.password == null || input.password.isBlank()) {
@@ -89,17 +94,15 @@ public class AuthService {
         return tokens(user.getUsername());
     }
 
+    // Для обновления принимаем только токен типа refresh
     public TokenResponse refresh(RefreshRequest input) {
         String token = input.refreshToken;
         if (token == null || token.isBlank()) {
             throw new ApiException(401, "Укажите refresh-токен");
         }
         try {
-            if (!jwt.isRefreshToken(token)) {
-                throw new ApiException(401, "Требуется refresh-токен");
-            }
-            String username = jwt.getUsername(token);
-            if (username == null || users.findByUsername(username) == null) {
+            String username = jwt.readUsername(token, "refresh");
+            if (users.findByUsername(username) == null) {
                 throw new ApiException(401, "Пользователь не найден");
             }
             return tokens(username);
@@ -108,6 +111,7 @@ public class AuthService {
         }
     }
 
+    // Выдаём оба токена для одного пользователя
     private TokenResponse tokens(String username) {
         return new TokenResponse(jwt.generateAccessToken(username),
                 jwt.generateRefreshToken(username), jwt.getAccessExpirationSeconds());

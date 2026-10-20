@@ -11,12 +11,14 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-// Spring сам создаст объект этого класса и передаст его в сервис.
+// Читаем поля JSON и проверяем их типы, форматы и диапазоны
 @Component
 public class StudentValidator {
+    // Принимаем только перечисленные поля, неизвестные имена считаем ошибкой
     public static final Set<String> FIELDS = Set.of(
             "name", "group", "isu", "dorm", "room", "expDate", "foreigner", "notes");
 
+    // Для создания и PUT получаем пустой объект, для PATCH копию старых данных
     public StudentDto read(JsonNode input, StudentDto student) {
         if (input == null || !input.isObject() || input.isEmpty()) {
             throw new ApiException(400, "Ожидался непустой JSON-объект");
@@ -26,7 +28,7 @@ public class StudentValidator {
         }
 
         Map<String, String> errors = new LinkedHashMap<>();
-        // JsonNode хранит JSON запроса. При PATCH здесь перебираются только присланные поля.
+        // JsonNode хранит JSON запроса. При PATCH здесь перебираются только присланные поля
         Iterator<String> fields = input.fieldNames();
         while (fields.hasNext()) {
             String field = fields.next();
@@ -68,13 +70,15 @@ public class StudentValidator {
                 }
             }
         }
-        // Сначала проверяем типы полей, затем сами значения.
+        // Сначала проверяем типы полей, затем сами значения
         reject(errors);
+        // После проверки типов проверяем значения всего студента
         checkValues(student, errors);
         reject(errors);
         return student;
     }
 
+    // Регулярные выражения задают допустимый формат строк
     private void checkValues(StudentDto student, Map<String, String> errors) {
         if (student.name == null || student.name.trim().isEmpty()) {
             errors.put("name", "Обязательное поле");
@@ -103,6 +107,7 @@ public class StudentValidator {
         }
     }
 
+    // Число или логическое значение не заменяют строку
     private String readText(JsonNode value, String field, Map<String, String> errors) {
         if (!value.isTextual()) {
             errors.put(field, "Ожидалась строка");
@@ -111,11 +116,12 @@ public class StudentValidator {
         return value.textValue();
     }
 
+    // Старый клиент может передавать целое число строкой из цифр
     private Integer readNumber(JsonNode value, String field, Map<String, String> errors) {
         if (value.isIntegralNumber() && value.canConvertToInt()) {
             return value.intValue();
         }
-        // В старой лабораторной числа могли приходить строками: "505301".
+        // В старой лабораторной числа могли приходить строками: "505301"
         if (value.isTextual() && value.textValue().matches("[0-9]+")) {
             try {
                 return Integer.parseInt(value.textValue());
@@ -128,6 +134,7 @@ public class StudentValidator {
         return null;
     }
 
+    // Если есть ошибки, прерываем действие и возвращаем их клиенту
     private void reject(Map<String, String> errors) {
         if (!errors.isEmpty()) {
             throw new ApiException(422, "Некорректные данные студента", errors);

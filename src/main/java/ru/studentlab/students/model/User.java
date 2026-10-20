@@ -2,6 +2,7 @@ package ru.studentlab.students.model;
 
 import jakarta.persistence.*;
 
+// Храним учётные записи, роли и хеши паролей в таблице app_users
 @Entity
 @Table(name = "app_users")
 public class User {
@@ -15,7 +16,7 @@ public class User {
     @Column(nullable = false, unique = true, length = 254)
     private String email;
 
-    // Здесь хранится только BCrypt-хеш, а не исходный пароль.
+    // Здесь хранится только BCrypt-хеш, а не исходный пароль
     @Column(nullable = false)
     private String password;
 

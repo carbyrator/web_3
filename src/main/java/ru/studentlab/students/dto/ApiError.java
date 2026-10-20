@@ -2,6 +2,7 @@ package ru.studentlab.students.dto;
 
 import java.util.Map;
 
+// Данные ошибки для ответа в формате error.message и error.details
 public class ApiError {
     public ErrorBody error;
 
@@ -9,6 +10,7 @@ public class ApiError {
         error = new ErrorBody(message, details);
     }
 
+    // Вложенный объект содержит сообщение и ошибки отдельных полей
     public static class ErrorBody {
         public String message;
         public Map<String, String> details;

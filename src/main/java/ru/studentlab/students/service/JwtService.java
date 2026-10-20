@@ -1,6 +1,7 @@
 package ru.studentlab.students.service;
 
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.annotation.PostConstruct;
 import io.jsonwebtoken.security.Keys;
@@ -11,9 +12,10 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
+// Создаём и проверяем подписанные токены
 @Service
 public class JwtService {
-
+    // Настройки берутся из .env через application.properties
     @Value("${app.jwt.secret}")
     private String secret;
 
@@ -23,78 +25,57 @@ public class JwtService {
     @Value("${app.jwt.refresh-token-expiration}")
     private long refreshExpiration;
 
+    private SecretKey key;
+
+    // Один раз создаём ключ и проверяем сроки токенов при запуске
     @PostConstruct
     public void checkConfig() {
-        getSigningKey(); // При слишком коротком ключе приложение сразу сообщит об ошибке.
+        key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         if (accessExpiration <= 0 || refreshExpiration <= accessExpiration) {
             throw new IllegalArgumentException("Refresh должен жить дольше access; сроки должны быть положительными");
         }
     }
 
+    // В настройках срок указан в миллисекундах, а в ответе нужны секунды
     public long getAccessExpirationSeconds() {
         return accessExpiration / 1000;
     }
 
-    // Создаем ключ из строки секрета
-    private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-    }
-
-    // 2. Генерация Access токена
+    // Создаём токен для обращения к защищённым адресам
     public String generateAccessToken(String username) {
         return buildToken(username, accessExpiration, "access");
     }
 
-    // 3. Генерация Refresh токена
+    // Создаём токен для продления входа без повторного ввода пароля
     public String generateRefreshToken(String username) {
         return buildToken(username, refreshExpiration, "refresh");
     }
 
-    // 4. Общий метод сборки токена (чтобы не дублировать код)
+    // В обоих токенах сохраняем имя пользователя, тип и срок действия
     private String buildToken(String username, long expirationMs, String type) {
         return Jwts.builder()
                 .subject(username)
                 .claim("type", type)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
-                .signWith(getSigningKey())
+                .signWith(key)
                 .compact();
     }
 
-    // 5. Получение имени пользователя из токена
-    public String getUsername(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
+    // Проверяем подпись, срок и нужный тип токена, затем читаем имя
+    public String readUsername(String token, String type) {
+        Claims data = Jwts.parser()
+                .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
-    }
-
-    // 6. Проверка валидности (если парсинг не упал с ошибкой — токен валиден)
-    public boolean isValid(String token) {
-        try {
-            getUsername(token); // Пытаемся прочитать. Если ок — значит валиден
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false; // Истёкший или подделанный токен не принимаем
+                .getPayload();
+        if (!type.equals(data.get("type", String.class))) {
+            throw new JwtException("Неверный тип токена");
         }
-    }
-
-    public boolean isAccessToken(String token) {
-        String type = Jwts.parser().verifyWith(getSigningKey()).build()
-                .parseSignedClaims(token).getPayload().get("type", String.class);
-        return "access".equals(type);
-    }
-
-    // 7. Проверка, что это именно refresh-токен
-    public boolean isRefreshToken(String token) {
-        String type = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .get("type", String.class);
-        return "refresh".equals(type);
+        String username = data.getSubject();
+        if (username == null || username.isBlank()) {
+            throw new JwtException("В токене нет имени пользователя");
+        }
+        return username;
     }
 }
