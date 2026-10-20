@@ -10,16 +10,19 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Имя пользователя (уникальное не пустое)
     @Column(nullable = false, unique = true, length = 40)
     private String username;
 
+    // Почта (уникальная не пустая)
     @Column(nullable = false, unique = true, length = 254)
     private String email;
 
-    // Здесь хранится только BCrypt-хеш, а не исходный пароль
+    // Хеш пароля BCrypt, исходный пароль не сохраняем
     @Column(nullable = false)
     private String password;
 
+    // Роль
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;

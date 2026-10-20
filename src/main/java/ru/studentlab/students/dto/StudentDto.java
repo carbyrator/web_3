@@ -24,7 +24,6 @@ public class StudentDto {
     }
 
     // Копируем поля из записи БД в объект ответа
-    // Копируем поля сущности в отдельный объект ответа
     public StudentDto(Student student) {
         name = student.getName();
         group = student.getGroup();
