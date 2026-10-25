@@ -15,8 +15,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.studentlab.students.dto.StudentDto;
 import ru.studentlab.students.exception.ApiException;
-import ru.studentlab.students.service.StudentSearch;
-import ru.studentlab.students.service.StudentService;
+import ru.studentlab.students.query.StudentSearchParser;
+import ru.studentlab.students.dto.StudentSearchResult;
+import ru.studentlab.students.service.port.StudentQueries;
+import ru.studentlab.students.service.port.StudentCommands;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -27,11 +29,16 @@ import java.util.Map;
 @Tag(name = "Студенты")
 @SecurityRequirement(name = "bearerAuth")
 public class StudentController {
-    private final StudentService service;
+    private final StudentQueries queries;
+    private final StudentCommands commands;
+    private final StudentSearchParser searchParser;
     private final ObjectMapper mapper;
 
-    public StudentController(StudentService service, ObjectMapper mapper) {
-        this.service = service;
+    public StudentController(StudentQueries queries, StudentCommands commands,
+                             StudentSearchParser searchParser, ObjectMapper mapper) {
+        this.queries = queries;
+        this.commands = commands;
+        this.searchParser = searchParser;
         this.mapper = mapper;
     }
 
@@ -61,7 +68,7 @@ public class StudentController {
     @GetMapping("/{isu}")
     @Operation(summary = "Получить студента по ИСУ")
     public StudentDto get(@PathVariable Integer isu) {
-        return service.findByIsu(isu);
+        return queries.findByIsu(isu);
     }
 
     // После создания возвращаем статус 201 и адрес новой записи
@@ -70,7 +77,7 @@ public class StudentController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(schema = @Schema(implementation = StudentDto.class)))
     public ResponseEntity<StudentDto> create(@RequestBody JsonNode input) {
-        StudentDto student = service.create(input);
+        StudentDto student = commands.create(input);
         return ResponseEntity.created(URI.create("/api/requests/" + student.isu)).body(student);
     }
 
@@ -81,7 +88,7 @@ public class StudentController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(schema = @Schema(implementation = StudentDto.class)))
     public StudentDto replace(@PathVariable Integer isu, @RequestBody JsonNode input) {
-        return service.update(isu, input, false);
+        return commands.update(isu, input, false);
     }
 
     // Частичное изменение сохраняет остальные поля студента
@@ -89,14 +96,14 @@ public class StudentController {
     @Operation(summary = "Изменить отдельные поля", description = "Передаются только изменяемые поля, "
             + "например {\"room\":\"102\"}. Пустой объект и null вместо поля не допускаются.")
     public StudentDto patch(@PathVariable Integer isu, @RequestBody JsonNode input) {
-        return service.update(isu, input, true);
+        return commands.update(isu, input, true);
     }
 
     // После удаления возвращаем статус 204 без тела ответа
     @DeleteMapping("/{isu}")
     @Operation(summary = "Удалить студента")
     public ResponseEntity<Void> delete(@PathVariable Integer isu) {
-        service.delete(isu);
+        commands.delete(isu);
         return ResponseEntity.noContent().build();
     }
 
@@ -116,13 +123,13 @@ public class StudentController {
 
     // Данные списка идут в JSON, количество и страница в заголовки
     private ResponseEntity<List<StudentDto>> searchResult(JsonNode filters) {
-        StudentService.SearchResult result = service.findAll(new StudentSearch(filters));
+        StudentSearchResult result = queries.findAll(searchParser.parse(filters));
         ResponseEntity.BodyBuilder response = ResponseEntity.ok();
-        response.header("X-Total-Count", Long.toString(result.total));
-        if (result.page != null) {
-            response.header("X-Page", result.page.toString());
-            response.header("X-Page-Size", Integer.toString(result.size));
+        response.header("X-Total-Count", Long.toString(result.total()));
+        if (result.page() != null) {
+            response.header("X-Page", result.page().toString());
+            response.header("X-Page-Size", Integer.toString(result.size()));
         }
-        return response.body(result.students);
+        return response.body(result.students());
     }
 }

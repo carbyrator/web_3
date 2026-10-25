@@ -5,7 +5,7 @@ import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import ru.studentlab.students.model.Student;
-import ru.studentlab.students.service.StudentSearch;
+import ru.studentlab.students.query.StudentSearch;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -14,10 +14,10 @@ import java.util.Map;
 // Читаем и меняем студентов через Hibernate
 @Repository
 @Transactional(readOnly = true)
-public class StudentRepository {
+public class JpaStudentRepository implements StudentReader, StudentWriter {
     private final EntityManager entityManager;
 
-    public StudentRepository(EntityManager entityManager) {
+    public JpaStudentRepository(EntityManager entityManager) {
         this.entityManager = entityManager;
     }
 
@@ -37,8 +37,8 @@ public class StudentRepository {
     public List<Student> findAll(StudentSearch search) {
         Map<String, Object> parameters = new LinkedHashMap<>();
         String where = makeWhere(search, parameters);
-        String order = " order by s." + search.sortField + " " + search.sortDirection;
-        if (!search.sortField.equals("id")) {
+        String order = " order by s." + search.sortField() + " " + search.sortDirection();
+        if (!search.sortField().equals("id")) {
             // Внутренний ключ задаёт порядок при одинаковых значениях основного поля
             order += ", s.id asc";
         }
@@ -47,9 +47,9 @@ public class StudentRepository {
         for (String name : parameters.keySet()) {
             request.setParameter(name, parameters.get(name));
         }
-        if (search.page != null) {
-            request.setFirstResult(search.page * search.size);
-            request.setMaxResults(search.size);
+        if (search.page() != null) {
+            request.setFirstResult(search.page() * search.size());
+            request.setMaxResults(search.size());
         }
         return request.getResultList();
     }
@@ -89,8 +89,8 @@ public class StudentRepository {
     // Строка содержит имена проверенных полей, значения передаём отдельно
     private String makeWhere(StudentSearch search, Map<String, Object> parameters) {
         String where = " where 1 = 1";
-        for (String field : search.filters.keySet()) {
-            String value = search.filters.get(field);
+        for (String field : search.filters().keySet()) {
+            String value = search.filters().get(field);
             if (field.equals("foreigner")) {
                 where += " and s.foreigner = :foreigner";
                 parameters.put("foreigner", Boolean.parseBoolean(value));

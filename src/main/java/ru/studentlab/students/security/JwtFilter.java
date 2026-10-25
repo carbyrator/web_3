@@ -1,6 +1,6 @@
 package ru.studentlab.students.security;
 
-import io.jsonwebtoken.JwtException;
+import ru.studentlab.students.exception.InvalidTokenException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,19 +11,19 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import ru.studentlab.students.model.User;
-import ru.studentlab.students.repository.UserRepository;
-import ru.studentlab.students.service.JwtService;
+import ru.studentlab.students.repository.UserReader;
+import ru.studentlab.students.service.port.AccessTokenReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 // Проверяем токен до обращения к защищённому адресу
 public class JwtFilter extends OncePerRequestFilter {
-    private final JwtService jwt;
-    private final UserRepository users;
+    private final AccessTokenReader jwt;
+    private final UserReader users;
     private final SecurityErrors errors;
 
-    public JwtFilter(JwtService jwt, UserRepository users, SecurityErrors errors) {
+    public JwtFilter(AccessTokenReader jwt, UserReader users, SecurityErrors errors) {
         this.jwt = jwt;
         this.users = users;
         this.errors = errors;
@@ -40,7 +40,7 @@ public class JwtFilter extends OncePerRequestFilter {
                     throw new IllegalArgumentException();
                 }
                 String token = header.substring(7);
-                String username = jwt.readUsername(token, "access");
+                String username = jwt.readAccessUsername(token);
                 User user = users.findByUsername(username);
                 if (user == null) {
                     throw new IllegalArgumentException();
@@ -51,7 +51,7 @@ public class JwtFilter extends OncePerRequestFilter {
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(username, null, roles);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-            } catch (JwtException | IllegalArgumentException e) {
+            } catch (InvalidTokenException | IllegalArgumentException e) {
                 errors.write(response, 401, "Access-токен недействителен или истёк");
                 return;
             }

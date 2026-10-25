@@ -9,23 +9,26 @@ import java.time.format.DateTimeParseException;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.List;
+import ru.studentlab.students.service.port.StudentInputReader;
+import ru.studentlab.students.validation.StudentFields;
+import ru.studentlab.students.validation.StudentValidationRule;
 
 // Читаем поля JSON и проверяем их типы, форматы и диапазоны
 @Component
-public class StudentValidator {
-    // Принимаем только перечисленные поля, неизвестные имена считаем ошибкой
-    public static final Set<String> FIELDS = Set.of(
-            "name", "group", "isu", "dorm", "room", "expDate", "foreigner", "notes");
+public class StudentValidator implements StudentInputReader {
+    private final List<StudentValidationRule> rules;
+
+    public StudentValidator(List<StudentValidationRule> rules) {
+        this.rules = List.copyOf(rules);
+    }
 
     // Для создания и PUT получаем пустой объект, для PATCH копию старых данных
     public StudentDto read(JsonNode input, StudentDto student) {
         if (input == null || !input.isObject() || input.isEmpty()) {
             throw new ApiException(400, "Ожидался непустой JSON-объект");
         }
-        if (student == null) {
-            student = new StudentDto();
-        }
+        student = student == null ? new StudentDto() : new StudentDto(student);
 
         Map<String, String> errors = new LinkedHashMap<>();
         // JsonNode хранит JSON запроса. При PATCH здесь перебираются только присланные поля
@@ -33,7 +36,7 @@ public class StudentValidator {
         while (fields.hasNext()) {
             String field = fields.next();
             JsonNode value = input.get(field);
-            if (!FIELDS.contains(field)) {
+            if (!StudentFields.ALL.contains(field)) {
                 errors.put(field, "Неизвестное свойство студента");
             } else if (value.isNull()) {
                 errors.put(field, "Поле не может быть null");
@@ -73,38 +76,11 @@ public class StudentValidator {
         // Сначала проверяем типы полей, затем сами значения
         reject(errors);
         // После проверки типов проверяем значения всего студента
-        checkValues(student, errors);
+        for (StudentValidationRule rule : rules) {
+            rule.validate(student, errors);
+        }
         reject(errors);
         return student;
-    }
-
-    // Регулярные выражения задают допустимый формат строк
-    private void checkValues(StudentDto student, Map<String, String> errors) {
-        if (student.name == null || student.name.trim().isEmpty()) {
-            errors.put("name", "Обязательное поле");
-        } else if (!student.name.matches("[a-zA-Zа-яА-ЯёЁ\\s]+")) {
-            errors.put("name", "ФИО должно содержать только буквы");
-        } else if (student.name.trim().split("\\s+").length < 2) {
-            errors.put("name", "ФИО должно содержать минимум 2 слова");
-        }
-        if (student.group == null || !student.group.matches("[A-Za-z][1-9][0-9]{3}")) {
-            errors.put("group", "Группа: 1 буква и 4 цифры (например, P1234)");
-        }
-        if (student.isu == null || student.isu < 100000 || student.isu > 999999) {
-            errors.put("isu", "ИСУ должен быть от 100000 до 999999");
-        }
-        if (student.dorm == null || student.dorm < 1 || student.dorm > 100) {
-            errors.put("dorm", "Номер общежития: от 1 до 100");
-        }
-        if (student.room == null || !student.room.matches("[0-9]{2,4}[A-Za-zА-Яа-яЁё]?")) {
-            errors.put("room", "Комната: 2-4 цифры и необязательная буква");
-        }
-        if (student.expDate == null) {
-            errors.put("expDate", "Обязательное поле");
-        }
-        if (student.foreigner == null) {
-            errors.put("foreigner", "Укажите статус студента");
-        }
     }
 
     // Число или логическое значение не заменяют строку

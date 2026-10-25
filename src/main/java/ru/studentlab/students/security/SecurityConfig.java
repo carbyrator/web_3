@@ -10,15 +10,22 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.firewall.StrictHttpFirewall;
 import java.util.List;
-import ru.studentlab.students.service.JwtService;
-import ru.studentlab.students.repository.UserRepository;
+import ru.studentlab.students.service.port.AccessTokenReader;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import ru.studentlab.students.repository.UserReader;
 
 // Здесь задаём открытые адреса и права для каждой роли
 @Configuration
 public class SecurityConfig {
     @Bean
-    public SecurityFilterChain security(HttpSecurity http, JwtService jwt,
-                                        UserRepository users, SecurityErrors errors) throws Exception {
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SecurityFilterChain security(HttpSecurity http, AccessTokenReader jwt,
+                                        UserReader users, SecurityErrors errors) throws Exception {
         JwtFilter jwtFilter = new JwtFilter(jwt, users, errors);
         // Стрелка передаёт Spring небольшой блок настроек
         http.csrf(csrf -> csrf.disable()); // Вход проверяем по токену из заголовка

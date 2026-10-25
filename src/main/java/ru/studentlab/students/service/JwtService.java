@@ -3,10 +3,12 @@ package ru.studentlab.students.service;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
-import jakarta.annotation.PostConstruct;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ru.studentlab.students.dto.TokenResponse;
+import ru.studentlab.students.exception.InvalidTokenException;
+import ru.studentlab.students.service.port.*;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -14,40 +16,35 @@ import java.util.Date;
 
 // Создаём и проверяем подписанные токены
 @Service
-public class JwtService {
-    // Настройки берутся из .env через application.properties
-    @Value("${app.jwt.secret}")
-    private String secret;
-
-    @Value("${app.jwt.access-token-expiration}")
-    private long accessExpiration;
-
-    @Value("${app.jwt.refresh-token-expiration}")
-    private long refreshExpiration;
-
-    private SecretKey key;
+public class JwtService implements TokenIssuer, AccessTokenReader, RefreshTokenReader {
+    private final long accessExpiration;
+    private final long refreshExpiration;
+    private final SecretKey key;
 
     // Один раз создаём ключ и проверяем сроки токенов при запуске
-    @PostConstruct
-    public void checkConfig() {
+    public JwtService(@Value("${app.jwt.secret}") String secret,
+                      @Value("${app.jwt.access-token-expiration}") long accessExpiration,
+                      @Value("${app.jwt.refresh-token-expiration}") long refreshExpiration) {
         key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         if (accessExpiration <= 0 || refreshExpiration <= accessExpiration) {
             throw new IllegalArgumentException("Refresh должен жить дольше access; сроки должны быть положительными");
         }
+        this.accessExpiration = accessExpiration;
+        this.refreshExpiration = refreshExpiration;
     }
 
     // В настройках срок указан в миллисекундах, а в ответе нужны секунды
-    public long getAccessExpirationSeconds() {
+    private long getAccessExpirationSeconds() {
         return accessExpiration / 1000;
     }
 
     // Создаём токен для обращения к защищённым адресам
-    public String generateAccessToken(String username) {
+    private String generateAccessToken(String username) {
         return buildToken(username, accessExpiration, "access");
     }
 
     // Создаём токен для продления входа без повторного ввода пароля
-    public String generateRefreshToken(String username) {
+    private String generateRefreshToken(String username) {
         return buildToken(username, refreshExpiration, "refresh");
     }
 
@@ -63,7 +60,31 @@ public class JwtService {
     }
 
     // Проверяем подпись, срок и нужный тип токена, затем читаем имя
-    public String readUsername(String token, String type) {
+    @Override
+    public TokenResponse issue(String username) {
+        return new TokenResponse(generateAccessToken(username), generateRefreshToken(username),
+                getAccessExpirationSeconds());
+    }
+
+    @Override
+    public String readAccessUsername(String token) {
+        return readUsername(token, "access");
+    }
+
+    @Override
+    public String readRefreshUsername(String token) {
+        return readUsername(token, "refresh");
+    }
+
+    private String readUsername(String token, String type) {
+        try {
+            return parseUsername(token, type);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new InvalidTokenException(e);
+        }
+    }
+
+    private String parseUsername(String token, String type) {
         Claims data = Jwts.parser()
                 .verifyWith(key)
                 .build()

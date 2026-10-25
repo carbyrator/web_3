@@ -38,8 +38,7 @@ public class Student {
     private String notes = "";
 
     // Внутренний id не меняется, даже если пользователь исправил ИСУ
-    // get... читает закрытое поле, set... меняет его. Это обычные методы класса
-    // Методы ниже позволяют читать и менять закрытые поля
+    // get читает закрытое поле, set меняет его
     public Long getId() { return id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

@@ -1,6 +1,6 @@
 # Методичка к защите лабораторной №3
 
-Вариант: Spring Boot + Hibernate/JPA. Первый участник отвечает за студентов и хранение данных, второй — за пользователей, JWT и права доступа. Оба должны понимать запуск и общий путь запроса.
+Вариант: Spring Boot + Hibernate/JPA. Первый участник отвечает за студентов и хранение данных, второй — за пользователей, JWT и права доступа. Оба должны понимать запуск и общий путь запроса. Архитектура после рефакторинга и все пять принципов SOLID разобраны в [отдельной памятке](docs/solid.md).
 
 ## 1. Что делает приложение
 
@@ -42,10 +42,13 @@
 | `model/Student.java` | Описывает запись таблицы students | Поля, типы, аннотации, внутренний id и уникальный ИСУ |
 | `dto/StudentDto.java` | Данные студента для ответа API | Зачем отделять внешний JSON от сущности БД |
 | `controller/StudentController.java` | Принимает GET/POST/PUT/PATCH/DELETE/QUERY | Как адрес и метод выбирают операцию; где задаются статусы |
-| `service/StudentService.java` | Создаёт, читает, изменяет и удаляет студентов | Порядок проверок, транзакции, поиск по ИСУ, копирование полей |
-| `service/StudentValidator.java` | Проверяет JSON и значения полей | Обязательные поля, типы, диапазоны, форматы; разница PUT/PATCH |
-| `service/StudentSearch.java` | Проверяет параметры списка | Допустимые фильтры, направление сортировки, page/size |
-| `repository/StudentRepository.java` | Выполняет запросы Hibernate через EntityManager | SELECT, INSERT/UPDATE/DELETE, параметры запроса, limit/offset |
+| `service/StudentService.java` | Реализует `StudentQueries` и `StudentCommands` | Порядок действий, транзакции, зависимости от `StudentReader`/`StudentWriter` |
+| `service/StudentValidator.java` | Разбирает JSON и применяет список `StudentValidationRule` | Типы полей, расширение проверок, разница PUT/PATCH |
+| `validation/Student*Rule.java` | Проверяют имя/группу/ИСУ, общежитие/комнату, дату/статус | Общий контракт правила и добавление нового компонента |
+| `service/StudentMapper.java` | Переносит поля между Student и StudentDto | Почему DTO не зависит от Hibernate-сущности |
+| `query/StudentSearchParser.java`, `StudentSearch.java` | Разбор параметров и неизменяемый результат | Допустимые фильтры, направление сортировки, page/size |
+| `repository/StudentReader.java`, `StudentWriter.java` | Контракты чтения и изменения | Разделение интерфейсов, возможность заменить хранилище |
+| `repository/JpaStudentRepository.java` | Выполняет запросы Hibernate через EntityManager | SELECT, INSERT/UPDATE/DELETE, параметры запроса, limit/offset |
 | `exception/ApiException.java` | Хранит сообщение, HTTP-статус и ошибки полей | Как сервис сообщает о неуспехе |
 | `exception/GlobalExceptionHandler.java` | Превращает исключения в единый ответ | Почему обработка ошибок вынесена из контроллеров |
 | `dto/ApiError.java` | Формат JSON ошибки | Поля error.message и error.details |
@@ -74,9 +77,9 @@ Frontend находится в `src/main/resources/static`:
 
 1. Браузер передаёт POST `/api/requests` с JSON и access-токеном.
 2. Security пропускает только ADMIN.
-3. `StudentController.create` вызывает `StudentService.create`.
-4. `StudentValidator.read` проверяет поля.
-5. Сервис проверяет занятость ИСУ, создаёт Student и копирует поля.
+3. `StudentController.create` вызывает контракт `StudentCommands`; его реализует `StudentService`.
+4. `StudentInputReader` реализован в `StudentValidator`: он разбирает JSON и применяет правила `StudentValidationRule`.
+5. Сервис через `StudentReader` проверяет занятость ИСУ, создаёт Student и вызывает `StudentMapper`.
 6. Репозиторий вызывает `persist` и `flush`; Hibernate выполняет INSERT.
 7. Контроллер возвращает DTO, статус 201 и заголовок Location.
 
@@ -125,13 +128,17 @@ PUT заменяет полную запись и требует все обяз
 | `dto/RefreshRequest.java` | Refresh-токен | Почему пароль повторно не нужен |
 | `dto/TokenResponse.java` | Два токена, Bearer и expiresIn | Что клиент получает и в каких единицах срок |
 | `repository/UserRepository.java` | Поиск пользователей и проверки уникальности | Spring Data создаёт запросы по названиям методов; save наследуется от JpaRepository |
-| `service/AuthService.java` | Регистрация, BCrypt, вход и refresh | Где проверяются пароль, роль и уникальность |
+| `service/AuthService.java` | Вход и refresh через контракт `Authentication` | `PasswordEncoder`, `TokenIssuer`, `RefreshTokenReader`, `UserReader` |
+| `service/RegistrationService.java` | Регистрация USER и внутреннее создание учётных записей | Проверка через `RegistrationValidator`, нормализация, уникальность |
+| `service/UserProfileService.java` | Имя и роль текущего пользователя | Почему контроллер не обращается к репозиторию |
+| `service/AdminAccountService.java` | Создание ADMIN и обновление пароля | Транзакция и повторный запуск без дублирования |
+| `repository/JpaUserStore.java` | Адаптер `UserReader` и `UserWriter` | Сервисы не зависят от полного `JpaRepository` |
 | `service/JwtService.java` | Подписывает и проверяет JWT | Имя пользователя, тип, срок, подпись, ключ |
 | `controller/AuthController.java` | `/api/auth/register`, login, refresh, me | Тела запросов, ответы и публичные/защищённые адреса |
 | `security/JwtFilter.java` | Читает Bearer и устанавливает текущего пользователя | Где проверяется access, как роль попадает в SecurityContext |
 | `security/SecurityConfig.java` | Задаёт правила доступа | Публичные адреса, права USER/ADMIN, отсутствие серверной сессии |
 | `security/SecurityErrors.java` | JSON для 401 и 403 | Почему нужен отдельный обработчик ошибок фильтров |
-| `security/AdminInitializer.java` | Создаёт первого ADMIN из окружения | Почему ADMIN нельзя получить через публичную регистрацию |
+| `security/AdminInitializer.java` | Передаёт настройки окружения в `AdministratorAccounts` | Сам не проверяет пароли и не обращается в БД |
 
 На frontend второй участник должен знать `login.html`, `js/auth.js` и токены в `js/storage.js`. В `js/index.js` скрываются кнопки изменения для USER, в `js/form.js` проверяется роль перед показом формы. Это удобство интерфейса, а реальную защиту выполняет backend.
 
@@ -139,7 +146,7 @@ PUT заменяет полную запись и требует все обяз
 
 Регистрация проверяет имя 3–40 символов, формат email и пароль 6–40 символов, максимум 72 байта UTF-8 для BCrypt. Email приводится к нижнему регистру. Имя и email уникальны также в БД.
 
-Публичный метод регистрации всегда передаёт Role.USER. Присланное клиентом поле role не назначает ADMIN. Администратор создаётся отдельным инициализатором из `.env`.
+Метод `RegistrationService.register` всегда передаёт Role.USER. Присланное клиентом поле role не назначает ADMIN. Инициализатор передаёт настройки из `.env` в `AdminAccountService`, который создаёт администратора через `UserProvisioning`.
 
 BCrypt вычисляет хеш с солью. Соль входит в результат; одинаковые пароли не обязаны давать одинаковые хеши. На входе `matches` проверяет пароль относительно сохранённого хеша. Расшифровки пароля в проекте нет. Хеш и исходный пароль не выдаются в API.
 
@@ -147,11 +154,11 @@ BCrypt вычисляет хеш с солью. Соль входит в рез�
 
 1. POST `/api/auth/login` получает имя и пароль.
 2. `AuthService` находит пользователя и проверяет BCrypt-хеш.
-3. `JwtService` создаёт access и refresh.
+3. `AuthService` вызывает `TokenIssuer.issue`; в приложении его реализует `JwtService`.
 4. Клиент отправляет access в `Authorization: Bearer ...`.
-5. `JwtFilter` проверяет подпись, срок и тип access, читает имя.
+5. `JwtFilter` вызывает `AccessTokenReader.readAccessUsername`: реализация `JwtService` проверяет подпись, срок и тип access, читает имя.
 6. Пользователь и его актуальная роль читаются из БД.
-7. Фильтр создаёт Authentication с ROLE_USER или ROLE_ADMIN.
+7. Фильтр создаёт Spring Security Authentication с ROLE_USER или ROLE_ADMIN (это другой тип, чем наш контракт `service.port.Authentication`).
 8. Spring Security разрешает или запрещает операцию по правилам SecurityConfig.
 
 Для неверного имени и неверного пароля возвращается одинаковое сообщение. В логах нет паролей и полных токенов.

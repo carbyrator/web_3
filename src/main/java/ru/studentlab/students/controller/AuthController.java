@@ -6,9 +6,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.studentlab.students.dto.*;
-import ru.studentlab.students.model.User;
-import ru.studentlab.students.repository.UserRepository;
-import ru.studentlab.students.service.AuthService;
+import ru.studentlab.students.service.port.Authentication;
+import ru.studentlab.students.service.port.Registration;
+import ru.studentlab.students.service.port.UserProfile;
 import java.security.Principal;
 import java.util.Map;
 
@@ -17,19 +17,21 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 @Tag(name = "Авторизация")
 public class AuthController {
-    private final AuthService auth;
-    private final UserRepository users;
+    private final Authentication auth;
+    private final Registration registration;
+    private final UserProfile profile;
 
-    public AuthController(AuthService auth, UserRepository users) {
+    public AuthController(Authentication auth, Registration registration, UserProfile profile) {
         this.auth = auth;
-        this.users = users;
+        this.registration = registration;
+        this.profile = profile;
     }
 
     // Регистрация всегда создаёт обычного пользователя
     @PostMapping("/register")
     @Operation(summary = "Регистрация пользователя с ролью USER")
     public ResponseEntity<Void> register(@RequestBody RegisterRequest input) {
-        auth.register(input);
+        registration.register(input);
         return ResponseEntity.status(201).build();
     }
 
@@ -52,7 +54,6 @@ public class AuthController {
     @Operation(summary = "Имя и роль текущего пользователя")
     @SecurityRequirement(name = "bearerAuth")
     public Map<String, String> me(Principal principal) {
-        User user = users.findByUsername(principal.getName());
-        return Map.of("username", user.getUsername(), "role", user.getRole().name());
+        return profile.me(principal.getName());
     }
 }

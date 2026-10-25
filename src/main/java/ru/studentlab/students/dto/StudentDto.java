@@ -1,7 +1,6 @@
 package ru.studentlab.students.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import ru.studentlab.students.model.Student;
 import java.time.LocalDate;
 
 // Данные студента для JSON, внутренний номер записи в ответ не передаём
@@ -23,15 +22,15 @@ public class StudentDto {
     public StudentDto() {
     }
 
-    // Копируем поля из записи БД в объект ответа
-    public StudentDto(Student student) {
-        name = student.getName();
-        group = student.getGroup();
-        isu = student.getIsu();
-        dorm = student.getDorm();
-        room = student.getRoom();
-        expDate = student.getExpDate();
-        foreigner = student.getForeigner();
-        notes = student.getNotes();
+    // Независимая копия для проверки PATCH без изменения исходных данных
+    public StudentDto(StudentDto student) {
+        name = student.name;
+        group = student.group;
+        isu = student.isu;
+        dorm = student.dorm;
+        room = student.room;
+        expDate = student.expDate;
+        foreigner = student.foreigner;
+        notes = student.notes;
     }
 }

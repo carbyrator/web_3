@@ -1,82 +1,33 @@
 package ru.studentlab.students.service;
 
-import io.jsonwebtoken.JwtException;
+import ru.studentlab.students.exception.InvalidTokenException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.studentlab.students.dto.*;
 import ru.studentlab.students.exception.ApiException;
-import ru.studentlab.students.model.Role;
 import ru.studentlab.students.model.User;
-import ru.studentlab.students.repository.UserRepository;
-import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
+import ru.studentlab.students.repository.UserReader;
+import ru.studentlab.students.service.port.*;
 
-// Регистрируем пользователей, проверяем пароли и выдаём токены
+// Проверяем учётные данные и обновляем вход через абстракции токенов
 @Service
 @Transactional(readOnly = true)
-public class AuthService {
+public class AuthService implements Authentication {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
-    private final UserRepository users;
-    private final JwtService jwt;
-    private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder();
+    private final UserReader users;
+    private final TokenIssuer tokens;
+    private final RefreshTokenReader refreshTokens;
+    private final PasswordEncoder passwords;
 
-    public AuthService(UserRepository users, JwtService jwt) {
+    public AuthService(UserReader users, TokenIssuer tokens,
+                       RefreshTokenReader refreshTokens, PasswordEncoder passwords) {
         this.users = users;
-        this.jwt = jwt;
-    }
-
-    @Transactional
-    public void register(RegisterRequest input) {
-        // Публичная регистрация всегда создаёт USER
-        createUser(input, Role.USER);
-    }
-
-    @Transactional
-    public void createAdmin(RegisterRequest input) {
-        createUser(input, Role.ADMIN);
-    }
-
-    // Проверяем данные до записи пользователя в базу
-    private void createUser(RegisterRequest input, Role role) {
-        Map<String, String> errors = new LinkedHashMap<>();
-        if (input.username == null || input.username.trim().length() < 3
-                || input.username.trim().length() > 40) {
-            errors.put("username", "Имя пользователя: от 3 до 40 символов");
-        }
-        if (input.email == null || input.email.length() > 254
-                || !input.email.trim().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) {
-            errors.put("email", "Некорректный email");
-        }
-        if (input.password == null || input.password.isBlank() || input.password.length() < 6
-                || input.password.length() > 40
-                || input.password.getBytes(StandardCharsets.UTF_8).length > 72) {
-            errors.put("password", "Пароль: от 6 до 40 символов и не более 72 байт UTF-8");
-        }
-        if (!errors.isEmpty()) {
-            throw new ApiException(422, "Некорректные данные пользователя", errors);
-        }
-        // Убираем крайние пробелы и приводим почту к нижнему регистру
-        String username = input.username.trim();
-        String email = input.email.trim().toLowerCase(Locale.ROOT);
-        if (users.existsByUsername(username)) {
-            throw new ApiException(409, "Имя пользователя уже занято", Map.of("username", "Уже используется"));
-        }
-        if (users.existsByEmail(email)) {
-            throw new ApiException(409, "Email уже занят", Map.of("email", "Уже используется"));
-        }
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        // BCrypt сохраняет хеш с солью вместо исходного пароля
-        user.setPassword(passwords.encode(input.password));
-        user.setRole(role);
-        users.saveAndFlush(user);
-        log.info("Создан пользователь с ролью {}", role);
+        this.tokens = tokens;
+        this.refreshTokens = refreshTokens;
+        this.passwords = passwords;
     }
 
     // Ищем пользователя по имени и сравниваем пароль с хешем
@@ -91,7 +42,7 @@ public class AuthService {
             throw new ApiException(401, "Неверное имя пользователя или пароль");
         }
         log.info("Выполнен вход пользователя");
-        return tokens(user.getUsername());
+        return tokens.issue(user.getUsername());
     }
 
     // Для обновления принимаем только токен типа refresh
@@ -101,19 +52,14 @@ public class AuthService {
             throw new ApiException(401, "Укажите refresh-токен");
         }
         try {
-            String username = jwt.readUsername(token, "refresh");
+            String username = refreshTokens.readRefreshUsername(token);
             if (users.findByUsername(username) == null) {
                 throw new ApiException(401, "Пользователь не найден");
             }
-            return tokens(username);
-        } catch (JwtException | IllegalArgumentException e) {
+            return tokens.issue(username);
+        } catch (InvalidTokenException e) {
             throw new ApiException(401, "Refresh-токен недействителен или истёк");
         }
     }
 
-    // Выдаём оба токена для одного пользователя
-    private TokenResponse tokens(String username) {
-        return new TokenResponse(jwt.generateAccessToken(username),
-                jwt.generateRefreshToken(username), jwt.getAccessExpirationSeconds());
-    }
 }

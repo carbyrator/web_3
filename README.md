@@ -91,12 +91,29 @@ Java-код находится в `src/main/java/ru/studentlab/students`:
 - `controller/StudentController.java` — HTTP-запросы;
 - `service/StudentService.java` — действия над студентами;
 - `service/StudentValidator.java` — проверки данных;
-- `service/StudentSearch.java` — параметры поиска, сортировки и страниц;
-- `repository/StudentRepository.java` — запросы к БД через Hibernate;
+- `query/StudentSearchParser.java` — разбор фильтров, сортировки и страниц;
+- `query/StudentSearch.java` — проверенные неизменяемые критерии поиска;
+- `validation/StudentValidationRule.java` и реализации — расширяемые правила полей;
+- `service/StudentMapper.java` — преобразование сущности и DTO;
+- `repository/StudentReader.java`, `StudentWriter.java` — контракты чтения и записи;
+- `repository/JpaStudentRepository.java` — реализация через Hibernate;
+- `service/port/` — контракты прикладных операций и токенов;
 - `exception/` и `dto/ApiError.java` — единые ошибки;
 - `StudentsApplication.java` — запуск программы.
 
-Frontend находится в `src/main/resources/static`: старые страницы студентов, login.html, папки js, css, assets. Пользователи и защита находятся в model/User, Role, service/AuthService, JwtService, controller/AuthController, repository/UserRepository и security. Подробности — в методичке.
+Frontend находится в `src/main/resources/static`: старые страницы студентов, login.html, папки js, css, assets. За пользователей отвечают `RegistrationService`, `AuthService`, `UserProfileService` и `AdminAccountService`. `JpaUserStore` реализует контракты `UserReader`/`UserWriter` через Spring Data `UserRepository`. За JWT отвечает `JwtService`, за доступ — классы `security`. Подробности — в методичке.
+
+## SOLID и проверка
+
+Обязанности разделены между HTTP-контроллерами, прикладными сервисами, правилами проверки, преобразованием DTO и адаптерами хранения. Изменяемые инфраструктурные зависимости внедряются через узкие интерфейсы. Новые правила проверки добавляются реализациями `StudentValidationRule`, без изменения сервиса и JSON-парсера.
+
+[Все пять принципов SOLID: схема зависимостей, примеры и вопросы для защиты](docs/solid.md).
+
+```sh
+mvn clean verify
+```
+
+В IntelliJ IDEA можно выполнить Maven → Lifecycle → verify. Тесты используют H2 в памяти и собственные настройки, не читают `.env` и не меняют рабочую базу. Проверяются REST API через MockMvc, роли, CRUD, PUT/PATCH, поиск, регистрация, пароль администратора и контракты токенов. Один набор контрактных тестов выполняется для JWT и тестовой реализации непрозрачных токенов.
 
 ## API
 
