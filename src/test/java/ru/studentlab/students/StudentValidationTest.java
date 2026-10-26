@@ -15,8 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class StudentValidationTest {
     private final ObjectMapper json = new ObjectMapper();
-    private final List<StudentValidationRule> rules = List.of(
-            new StudentIdentityRule(), new StudentHousingRule(), new StudentStatusRule());
+    private final List<StudentValidationRule> rules = List.of(new StudentRules());
 
     @Test
     void additionalRuleWorksWithoutChangingParserOrService() throws Exception {

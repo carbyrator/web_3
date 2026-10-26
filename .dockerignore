@@ -6,5 +6,5 @@ target
 data
 logs
 docs
-README.md
+md/README.md
 .DS_Store

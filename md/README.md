@@ -8,14 +8,14 @@ Backend учёта студентов на Spring Boot + Hibernate/JPA: реля
 
 Нужна JDK 17–25 и файл `.env` в корне проекта. Если `.env` уже есть, используй его. Пример настроек приведён ниже.
 
-1. Выбери **File → Open** и открой `pom.xml` как проект.
+1. Выбери **File → Open** и открой `../pom.xml` как проект.
 2. Выбери установленную JDK для проекта и дождись загрузки зависимостей Maven.
-3. Открой `src/main/java/ru/studentlab/students/StudentsApplication.java`.
+3. Открой `../src/main/java/ru/studentlab/students/StudentsApplication.java`.
 4. Нажми зелёный треугольник рядом с методом `main` и выбери **Run**.
 
-Рабочая папка запуска должна быть корнем проекта `web_3`, где лежат `pom.xml` и `.env`. Тогда приложение прочитает настройки и откроет вашу локальную базу. В настройках Maven используй **Bundled Maven**. Обёртка Maven Wrapper для этого способа не нужна.
+Рабочая папка запуска должна быть корнем проекта `web_3`, где лежат `../pom.xml` и `.env`. Тогда приложение прочитает настройки и откроет вашу локальную базу. В настройках Maven используй **Bundled Maven**. Обёртка Maven Wrapper для этого способа не нужна.
 
-В `pom.xml` указано публичное зеркало Maven Central: основной адрес при проверке возвращал 403. Отдельный сервер БД не нужен: используется файловая H2.
+В `../pom.xml` указано публичное зеркало Maven Central: основной адрес при проверке возвращал 403. Отдельный сервер БД не нужен: используется файловая H2.
 
 Запуск основного класса описан в [документации IntelliJ IDEA](https://www.jetbrains.com/help/idea/running-applications.html).
 
@@ -25,11 +25,11 @@ Backend учёта студентов на Spring Boot + Hibernate/JPA: реля
 
 Остановка: кнопка **Stop** в окне запуска IntelliJ IDEA.
 
-Данные хранятся в `data/students.mv.db` и сохраняются после перезапуска. Запускай проект из одной и той же папки. Hibernate сам создаёт таблицу при первом запуске.
+Данные хранятся в `../data/students.mv.db` и сохраняются после перезапуска. Запускай проект из одной и той же папки. Hibernate сам создаёт таблицу при первом запуске.
 
 ## Настройки
 
-Параметры находятся в `src/main/resources/application.properties`. Свои значения указывай в `.env` в корне проекта. Файл читается автоматически; кавычки и `export` не нужны. `.env` исключён из Git.
+Параметры находятся в `../src/main/resources/application.properties`. Свои значения указывай в `.env` в корне проекта. Файл читается автоматически; кавычки и `export` не нужны. `.env` исключён из Git.
 
 Пример конфигурации для ТЗ хранится здесь, отдельный `.env.example` не нужен:
 
@@ -84,7 +84,7 @@ docker compose up --build
 
 ## Файлы проекта
 
-Java-код находится в `src/main/java/ru/studentlab/students`:
+Java-код находится в `../src/main/java/ru/studentlab/students`:
 
 - `model/Student.java` — запись студента в БД;
 - `dto/StudentDto.java` — поля, передаваемые через API;
@@ -93,7 +93,7 @@ Java-код находится в `src/main/java/ru/studentlab/students`:
 - `service/StudentValidator.java` — проверки данных;
 - `query/StudentSearchParser.java` — разбор фильтров, сортировки и страниц;
 - `query/StudentSearch.java` — проверенные неизменяемые критерии поиска;
-- `validation/StudentValidationRule.java` и реализации — расширяемые правила полей;
+- `validation/StudentRules.java` — базовые ограничения, `StudentValidationRule.java` — контракт дополнительных правил;
 - `service/StudentMapper.java` — преобразование сущности и DTO;
 - `repository/StudentReader.java`, `StudentWriter.java` — контракты чтения и записи;
 - `repository/JpaStudentRepository.java` — реализация через Hibernate;
@@ -101,13 +101,13 @@ Java-код находится в `src/main/java/ru/studentlab/students`:
 - `exception/` и `dto/ApiError.java` — единые ошибки;
 - `StudentsApplication.java` — запуск программы.
 
-Frontend находится в `src/main/resources/static`: старые страницы студентов, login.html, папки js, css, assets. За пользователей отвечают `RegistrationService`, `AuthService`, `UserProfileService` и `AdminAccountService`. `JpaUserStore` реализует контракты `UserReader`/`UserWriter` через Spring Data `UserRepository`. За JWT отвечает `JwtService`, за доступ — классы `security`. Подробности — в методичке.
+Frontend находится в `../src/main/resources/static`: старые страницы студентов, login.html, папки js, css, assets. За пользователей отвечают `RegistrationService`, `AuthService`, `UserProfileService` и `AdminAccountService`. Spring Data создаёт реализацию `UserRepository`, объединяющего контракты `UserReader`/`UserWriter`, без промежуточного адаптера. За JWT отвечает `JwtService`, за доступ — классы `security`. Подробности — в методичке.
 
 ## SOLID и проверка
 
 Обязанности разделены между HTTP-контроллерами, прикладными сервисами, правилами проверки, преобразованием DTO и адаптерами хранения. Изменяемые инфраструктурные зависимости внедряются через узкие интерфейсы. Новые правила проверки добавляются реализациями `StudentValidationRule`, без изменения сервиса и JSON-парсера.
 
-[Все пять принципов SOLID: схема зависимостей, примеры и вопросы для защиты](docs/solid.md).
+[Все пять принципов SOLID: схема зависимостей, примеры и вопросы для защиты](../docs/solid.md).
 
 ```sh
 mvn clean verify
@@ -184,6 +184,6 @@ PUT требует все обязательные поля и очищает з
 {"error":{"message":"Некорректные данные студента","details":{"isu":"ИСУ должен быть от 100000 до 999999"}}}
 ```
 
-Коллекция для проверки и демонстрации: `docs/students.postman_collection.json`. Импортировать в Postman, в переменных коллекции указать adminUsername и adminPassword из своего `.env`, запускать папки по порядку. Токены сохраняются автоматически. Коллекция проверяет обе роли, использует ИСУ 990001–990003 и удаляет созданных студентов в конце. Для регистрации каждый прогон получает новое имя пользователя.
+Коллекция для проверки и демонстрации: `../docs/students.postman_collection.json`. Импортировать в Postman, в переменных коллекции указать adminUsername и adminPassword из своего `.env`, запускать папки по порядку. Токены сохраняются автоматически. Коллекция проверяет обе роли, использует ИСУ 990001–990003 и удаляет созданных студентов в конце. Для регистрации каждый прогон получает новое имя пользователя.
 
 Чтобы проверить хранение данных: создай студента, останови сервер, запусти снова и получи студента по ИСУ.

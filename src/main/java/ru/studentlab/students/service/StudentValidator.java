@@ -40,34 +40,20 @@ public class StudentValidator implements StudentInputReader {
                 errors.put(field, "Неизвестное свойство студента");
             } else if (value.isNull()) {
                 errors.put(field, "Поле не может быть null");
-            } else if (field.equals("name")) {
-                student.name = readText(value, field, errors);
-            } else if (field.equals("group")) {
-                student.group = readText(value, field, errors);
-            } else if (field.equals("isu")) {
-                student.isu = readNumber(value, field, errors);
-            } else if (field.equals("dorm")) {
-                student.dorm = readNumber(value, field, errors);
-            } else if (field.equals("room")) {
-                student.room = readText(value, field, errors);
-            } else if (field.equals("notes")) {
-                student.notes = readText(value, field, errors);
-            } else if (field.equals("foreigner")) {
-                if (value.isBoolean()) {
-                    student.foreigner = value.booleanValue();
-                } else {
-                    errors.put(field, "Ожидалось true или false");
-                }
-            } else if (field.equals("expDate")) {
-                String date = readText(value, field, errors);
-                if (date != null) {
-                    if (!date.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
-                        errors.put(field, "Укажите дату в формате ГГГГ-ММ-ДД");
-                    } else {
-                        try {
-                            student.expDate = LocalDate.parse(date);
-                        } catch (DateTimeParseException e) {
-                            errors.put(field, "Такой даты не существует");
+            } else {
+                switch (field) {
+                    case "name" -> student.name = readText(value, field, errors);
+                    case "group" -> student.group = readText(value, field, errors);
+                    case "isu" -> student.isu = readNumber(value, field, errors);
+                    case "dorm" -> student.dorm = readNumber(value, field, errors);
+                    case "room" -> student.room = readText(value, field, errors);
+                    case "notes" -> student.notes = readText(value, field, errors);
+                    case "expDate" -> student.expDate = readDate(value, field, errors);
+                    case "foreigner" -> {
+                        if (value.isBoolean()) {
+                            student.foreigner = value.booleanValue();
+                        } else {
+                            errors.put(field, "Ожидалось true или false");
                         }
                     }
                 }
@@ -90,6 +76,23 @@ public class StudentValidator implements StudentInputReader {
             return null;
         }
         return value.textValue();
+    }
+
+    private LocalDate readDate(JsonNode value, String field, Map<String, String> errors) {
+        String date = readText(value, field, errors);
+        if (date == null) {
+            return null;
+        }
+        if (!date.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+            errors.put(field, "Укажите дату в формате ГГГГ-ММ-ДД");
+        } else {
+            try {
+                return LocalDate.parse(date);
+            } catch (DateTimeParseException e) {
+                errors.put(field, "Такой даты не существует");
+            }
+        }
+        return null;
     }
 
     // Старый клиент может передавать целое число строкой из цифр

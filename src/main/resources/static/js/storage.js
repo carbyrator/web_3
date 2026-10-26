@@ -80,20 +80,10 @@ if (!window.location.pathname.endsWith('login.html') && !sessionStorage.getItem(
     window.location.replace('login.html');
 }
 
-// При большом числе фильтров используем прежний метод QUERY с телом JSON
+// Все фильтры передаём параметрами GET; сервер также поддерживает прежний QUERY
 function getStudents(filters = {}) {
-    if (Object.keys(filters).length > 3) {
-        return apiRequest(API_URL, {
-            method: 'QUERY',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(filters)
-        });
-    }
     const query = new URLSearchParams(filters).toString();
-    if (query !== '') {
-        return apiRequest(API_URL + '?' + query);
-    }
-    return apiRequest(API_URL);
+    return apiRequest(API_URL + (query ? '?' + query : ''));
 }
 
 // ИСУ в адресе указывает, какого студента получить

@@ -9,7 +9,7 @@
 | `StudentController`, `AuthController` | Получить HTTP-запрос и оформить ответ |
 | `StudentService` | Выполнить сценарий работы со студентами в транзакции |
 | `StudentValidator` | Прочитать JSON и запустить правила проверки |
-| `StudentIdentityRule`, `StudentHousingRule`, `StudentStatusRule` | Проверить соответствующую группу полей |
+| `StudentRules` | Проверить базовые ограничения данных студента |
 | `StudentMapper` | Перенести данные между сущностью и DTO |
 | `StudentSearchParser` | Разобрать параметры поиска |
 | `StudentSearch` | Хранить проверенные неизменяемые критерии |
@@ -20,13 +20,13 @@
 | `AdminAccountService` | Обеспечить существование администратора с паролем из настроек |
 | `AdminInitializer` | Передать настройки в сценарий инициализации при старте |
 | `JwtService` | Создать и проверить JWT средствами JJWT |
-| `JpaStudentRepository`, `JpaUserStore` | Выполнить операции хранения через JPA |
+| `JpaStudentRepository`, реализация `UserRepository` от Spring Data | Выполнить операции хранения через JPA |
 
 В `AuthController` больше нет репозитория. `AuthService` не создаёт пользователей и не конструирует BCrypt. В `StudentDto` нет зависимости от Hibernate-сущности. Контроллеры не знают конкретных прикладных сервисов.
 
 ## O — Open/Closed: расширение без изменения стабильного кода
 
-`StudentValidator` получает `List<StudentValidationRule>` через конструктор. Spring собирает список из компонентов, реализующих этот контракт. Для нового бизнес-ограничения достаточно добавить класс:
+`StudentValidator` получает `List<StudentValidationRule>` через конструктор. Базовые ограничения собраны в одном компоненте `StudentRules`: для проверки каждой группы полей не нужен отдельный класс. Spring собирает список из компонентов, реализующих общий контракт. Для нового бизнес-ограничения достаточно добавить класс:
 
 ```java
 @Component
@@ -78,7 +78,7 @@ public class StudentNotesRule implements StudentValidationRule {
 
 ## D — Dependency Inversion: сценарии зависят от контрактов
 
-Сервисы получают инфраструктуру через интерфейсы, а конкретные адаптеры реализуют эти интерфейсы:
+Сервисы получают инфраструктуру через интерфейсы. Для студентов адаптер написан явно, для пользователей реализацию создаёт Spring Data:
 
 ```text
 StudentController → StudentQueries / StudentCommands ← StudentService
@@ -89,7 +89,7 @@ AuthController → Registration ← RegistrationService
 AuthController → Authentication ← AuthService
 AuthController → UserProfile ← UserProfileService
 
-Сервисы пользователей → UserReader / UserWriter ← JpaUserStore → UserRepository → JPA
+Сервисы пользователей → UserReader / UserWriter ← UserRepository (Spring Data) → JPA
 AuthService → PasswordEncoder ← BCryptPasswordEncoder (bean в SecurityConfig)
 AuthService → TokenIssuer / RefreshTokenReader ← JwtService
 JwtFilter → AccessTokenReader ← JwtService
@@ -97,6 +97,8 @@ AdminInitializer → AdministratorAccounts ← AdminAccountService
 ```
 
 `AuthService` и `JwtFilter` не импортируют классы JJWT. Адаптер `JwtService` переводит исключения библиотеки в общее `InvalidTokenException`. Переход на другой механизм токенов не требует менять обработку ошибок в потребителях.
+
+`UserRepository` объединяет `UserReader` и `UserWriter` и наследует только маркер `Repository<User, Long>`. Spring Data реализует поиск, проверки уникальности и `saveAndFlush`. Промежуточный класс, который только перенаправлял вызовы, не нужен. Потребители по-прежнему получают узкие контракты, не зависят от Spring Data и не получают лишние методы `JpaRepository`.
 
 Конструкторное внедрение обеспечивает передачу зависимостей, а зависимость от интерфейса обеспечивает инверсию. Эти понятия связаны, но не равнозначны. Простые DTO, неизменяемые критерии и вспомогательные преобразователи не требуют отдельного интерфейса для каждого класса.
 
@@ -112,6 +114,6 @@ mvn clean verify
 
 `ApiIntegrationTest` поднимает Spring с H2 в памяти и проверяет через MockMvc реальные фильтры, контроллеры, сервисы и JPA. Свойства заданы в тесте, чтение `.env` отключено. Рабочая файловая БД не используется. Отдельные тесты проверяют расширение правил, контракты токенов, неизменяемость критериев и некорректные фильтры.
 
-Сохранены адреса API, поля JSON, статусы, заголовки страниц, различия PUT/PATCH, QUERY, старый фильтр `dormitory`, роли USER/ADMIN и обновление пароля администратора при старте. Модель БД, настройки `.env` и frontend не требуют миграции.
+Сохранены адреса API, поля JSON, статусы, заголовки страниц, различия PUT/PATCH, QUERY, старый фильтр `dormitory`, роли USER/ADMIN и обновление пароля администратора при старте. Frontend передаёт все фильтры через GET; QUERY остаётся доступен прежним клиентам. Модель БД и настройки `.env` не требуют миграции.
 
 Для защиты: «HTTP, прикладные сценарии и инфраструктура разделены; проверки расширяются новыми правилами; реализации соблюдают явные контракты; интерфейсы разделены по потребителям; сервисы зависят от абстракций хранения, паролей и токенов».

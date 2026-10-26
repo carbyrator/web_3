@@ -13,7 +13,6 @@ import ru.studentlab.students.repository.StudentWriter;
 import ru.studentlab.students.service.port.*;
 import ru.studentlab.students.query.StudentSearch;
 import ru.studentlab.students.dto.StudentSearchResult;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -37,23 +36,15 @@ public class StudentService implements StudentQueries, StudentCommands {
 
     // Получаем сущности из базы и превращаем их в данные ответа
     public StudentSearchResult findAll(StudentSearch search) {
-        List<Student> students = reader.findAll(search);
-        List<StudentDto> result = new ArrayList<>();
-        for (Student student : students) {
-            result.add(mapper.toDto(student));
-        }
-        long total = result.size();
-        if (search.page() != null) {
-            // При страницах нужно общее число совпадений, а не длина страницы
-            total = reader.count(search);
-        }
+        List<StudentDto> result = reader.findAll(search).stream().map(mapper::toDto).toList();
+        // При страницах нужно общее число совпадений, а не длина страницы
+        long total = search.page() == null ? result.size() : reader.count(search);
         return new StudentSearchResult(result, total, search.page(), search.size());
     }
 
     // Внешний API работает с ИСУ, а не с внутренним ключом базы
     public StudentDto findByIsu(Integer isu) {
-        Student student = findEntity(isu);
-        return mapper.toDto(student);
+        return mapper.toDto(findEntity(isu));
     }
 
     // При нашей ошибке транзакция отменит изменения в базе
@@ -74,11 +65,8 @@ public class StudentService implements StudentQueries, StudentCommands {
     // Флаг partial отличает PATCH от полной замены PUT
     public StudentDto update(Integer isu, JsonNode input, boolean partial) {
         Student student = findEntity(isu);
-        StudentDto oldData = null;
         // Для PATCH сначала копируем старые значения в отдельный объект
-        if (partial) {
-            oldData = mapper.toDto(student);
-        }
+        StudentDto oldData = partial ? mapper.toDto(student) : null;
         StudentDto data = validator.read(input, oldData);
         // Новый ИСУ может совпадать со старым, но не с ИСУ другого студента
         Student other = reader.findByIsu(data.isu);

@@ -1,12 +1,55 @@
 # Методичка к защите лабораторной №3
 
-Вариант: Spring Boot + Hibernate/JPA. Первый участник отвечает за студентов и хранение данных, второй — за пользователей, JWT и права доступа. Оба должны понимать запуск и общий путь запроса. Архитектура после рефакторинга и все пять принципов SOLID разобраны в [отдельной памятке](docs/solid.md).
+Вариант: Spring Boot + Hibernate/JPA. Первый участник отвечает за студентов и хранение данных, второй — за пользователей, JWT и права доступа. Оба должны понимать запуск и общий путь запроса. Архитектура после рефакторинга и все пять принципов SOLID разобраны в [отдельной памятке](../docs/solid.md).
+
+## Как разделить подготовку на двоих
+
+Это учебное разделение одного приложения: переносить классы или создавать два проекта не нужно. По текущему backend объём почти одинаков: у первого 18 файлов и 886 строк, у второго 32 файла и 873 строки. Разница в числе файлов связана с небольшими DTO и интерфейсами авторизации. Общий `StudentsApplication` — ещё 21 строка. Число строк включает комментарии и пустые строки и служит ориентиром, а не точной оценкой сложности.
+
+| Блок | Участник 1: студенты и данные | Участник 2: пользователи, безопасность и ответы об ошибках |
+|---|---|---|
+| Модели и DTO | `Student`, `StudentDto`, `StudentSearchResult` | `User`, `Role`, `LoginRequest`, `RegisterRequest`, `RefreshRequest`, `TokenResponse`, `ApiError` |
+| Контроллеры | `StudentController` | `AuthController` |
+| Сервисы | `StudentService`, `StudentMapper`, `StudentValidator` | `RegistrationService`, `AuthService`, `UserProfileService`, `AdminAccountService`, `JwtService` |
+| Контракты сервисов | `StudentQueries`, `StudentCommands`, `StudentInputReader` | `Registration`, `Authentication`, `UserProfile`, `UserProvisioning`, `AdministratorAccounts`, `TokenIssuer`, `AccessTokenReader`, `RefreshTokenReader` |
+| Хранение | `StudentReader`, `StudentWriter`, `JpaStudentRepository` | `UserReader`, `UserWriter`, `UserRepository` |
+| Проверки и поиск | `StudentRules`, `StudentValidationRule`, `StudentFields`, `StudentSearch`, `StudentSearchParser` | `RegistrationValidator` |
+| Безопасность и ошибки | Уметь объяснить, когда сервис выбрасывает `ApiException` | Все классы `security`, `ApiException`, `GlobalExceptionHandler`, `InvalidTokenException` |
+| Тесты | `StudentValidationTest`, `StudentSearchTest`; сценарий CRUD из `ApiIntegrationTest` | `TokenContractTest`; регистрация, права, ошибки и администратор из `ApiIntegrationTest` |
+| Frontend, после backend | `index.html`, `form.html`, `student.html`, их JS; функции CRUD в `storage.js` | `login.html`, `auth.js`; токены, refresh и `apiRequest` в `storage.js` |
+
+### Порядок изучения первого участника
+
+1. `Student` → `StudentDto` → `StudentMapper`: какие данные хранятся и какие видит клиент.
+2. `StudentController` → `StudentService` → контракты хранения → `JpaStudentRepository`: проследить создание, чтение и удаление одной записи, объяснить транзакцию и уникальность ИСУ.
+3. `StudentValidator` → `StudentRules` → `StudentValidationRule`: проследить PUT и PATCH, ошибки полей, копирование исходных данных и подключение дополнительной проверки.
+4. `StudentSearchParser` → `StudentSearch` → запросы репозитория: объяснить фильтры, сортировку, страницы, COUNT и параметры SQL/JPQL.
+
+Контрольный рассказ: «ADMIN создаёт студента; сервер проверяет поля и уникальность ИСУ, сохраняет запись в транзакции и возвращает DTO со статусом 201. PATCH сохраняет неприсланные поля, PUT заменяет запись. Поиск и страницы выполняются в БД».
+
+### Порядок изучения второго участника
+
+1. `User` и DTO → `RegistrationService` → `RegistrationValidator` → контракты хранения и `UserRepository`: регистрация, уникальность, BCrypt и серверное назначение USER.
+2. `AuthController` → `AuthService` → контракты токенов → `JwtService`: вход, содержимое JWT, подпись, срок и различие access/refresh.
+3. `SecurityConfig` → `JwtFilter` → `SecurityErrors`: защищённый запрос, чтение роли из БД, различие 401 и 403. Затем `AdminInitializer` → `AdminAccountService`: создание ADMIN и обновление пароля при старте.
+4. `UserProfileService`, `ApiException`, `GlobalExceptionHandler`, `ApiError`: получение профиля и единый формат ошибок; почему ошибки фильтров обрабатываются отдельно от ошибок контроллеров.
+
+Контрольный рассказ: «Регистрация создаёт USER с хешем пароля. Вход выдаёт access и refresh. Фильтр проверяет access и загружает роль пользователя, а Spring Security разрешает чтение USER и изменение ADMIN. После истечения access клиент получает новую пару по refresh».
+
+### Что выучить вместе
+
+- Общий путь запроса от фильтра до БД и обратно; назначение Controller, Service, Repository и DTO.
+- Запуск через `StudentsApplication`, настройки `application.properties` и `.env`, назначение `pom.xml`, Docker и Swagger.
+- SOLID: первый показывает SRP на слоях и OCP на добавлении правила; второй — LSP на контрактных тестах токенов. Оба объясняют ISP на узких интерфейсах и DIP на зависимостях сервисов от контрактов хранения и токенов.
+- Общая демонстрация: второй регистрирует USER, показывает вход, refresh и отказ изменения с 403; первый под ADMIN показывает CRUD, поиск, страницы и ошибку валидации. Оба знают, что данные сохраняются в БД после перезапуска.
+
+Сначала каждый должен научиться рассказывать свой сценарий по исходникам и показывать его через API. Затем нужно обменяться рассказами: каждый объясняет чужой блок в общих чертах. Запоминать исходники построчно не требуется.
 
 ## 1. Что делает приложение
 
 Приложение хранит студентов общежития в реляционной БД H2. Доступ к API требует входа. USER читает студентов, ADMIN дополнительно создаёт, изменяет и удаляет их. Есть регистрация, вход, access- и refresh-токены.
 
-Все Java-файлы находятся в `src/main/java/ru/studentlab/students`. Поэтому в таблицах ниже пути приведены относительно этой папки.
+Все Java-файлы находятся в `../src/main/java/ru/studentlab/students`. Поэтому в таблицах ниже пути приведены относительно этой папки.
 
 Общий путь защищённого запроса:
 
@@ -44,16 +87,14 @@
 | `controller/StudentController.java` | Принимает GET/POST/PUT/PATCH/DELETE/QUERY | Как адрес и метод выбирают операцию; где задаются статусы |
 | `service/StudentService.java` | Реализует `StudentQueries` и `StudentCommands` | Порядок действий, транзакции, зависимости от `StudentReader`/`StudentWriter` |
 | `service/StudentValidator.java` | Разбирает JSON и применяет список `StudentValidationRule` | Типы полей, расширение проверок, разница PUT/PATCH |
-| `validation/Student*Rule.java` | Проверяют имя/группу/ИСУ, общежитие/комнату, дату/статус | Общий контракт правила и добавление нового компонента |
+| `validation/StudentRules.java`, `StudentValidationRule.java` | Базовые ограничения студента и контракт дополнительных правил | Проверки собраны в одном компоненте; новые правила добавляются без изменения валидатора |
 | `service/StudentMapper.java` | Переносит поля между Student и StudentDto | Почему DTO не зависит от Hibernate-сущности |
 | `query/StudentSearchParser.java`, `StudentSearch.java` | Разбор параметров и неизменяемый результат | Допустимые фильтры, направление сортировки, page/size |
 | `repository/StudentReader.java`, `StudentWriter.java` | Контракты чтения и изменения | Разделение интерфейсов, возможность заменить хранилище |
 | `repository/JpaStudentRepository.java` | Выполняет запросы Hibernate через EntityManager | SELECT, INSERT/UPDATE/DELETE, параметры запроса, limit/offset |
-| `exception/ApiException.java` | Хранит сообщение, HTTP-статус и ошибки полей | Как сервис сообщает о неуспехе |
-| `exception/GlobalExceptionHandler.java` | Превращает исключения в единый ответ | Почему обработка ошибок вынесена из контроллеров |
-| `dto/ApiError.java` | Формат JSON ошибки | Поля error.message и error.details |
+| `exception/ApiException.java` — общий контракт со вторым участником | Хранит сообщение, HTTP-статус и ошибки полей | Когда сервис сообщает о неуспехе; обработчик подробно объясняет второй участник |
 
-Frontend находится в `src/main/resources/static`:
+Frontend находится в `../src/main/resources/static`:
 
 | Файл | Что знать |
 |---|---|
@@ -127,18 +168,20 @@ PUT заменяет полную запись и требует все обяз
 | `dto/LoginRequest.java` | Имя и пароль входа | Отличие входа от регистрации |
 | `dto/RefreshRequest.java` | Refresh-токен | Почему пароль повторно не нужен |
 | `dto/TokenResponse.java` | Два токена, Bearer и expiresIn | Что клиент получает и в каких единицах срок |
-| `repository/UserRepository.java` | Поиск пользователей и проверки уникальности | Spring Data создаёт запросы по названиям методов; save наследуется от JpaRepository |
+| `repository/UserRepository.java` | Реализация контрактов `UserReader` и `UserWriter` средствами Spring Data | Маркер `Repository` включает создание реализации; поиск и `saveAndFlush` объявлены в узких контрактах |
 | `service/AuthService.java` | Вход и refresh через контракт `Authentication` | `PasswordEncoder`, `TokenIssuer`, `RefreshTokenReader`, `UserReader` |
 | `service/RegistrationService.java` | Регистрация USER и внутреннее создание учётных записей | Проверка через `RegistrationValidator`, нормализация, уникальность |
 | `service/UserProfileService.java` | Имя и роль текущего пользователя | Почему контроллер не обращается к репозиторию |
 | `service/AdminAccountService.java` | Создание ADMIN и обновление пароля | Транзакция и повторный запуск без дублирования |
-| `repository/JpaUserStore.java` | Адаптер `UserReader` и `UserWriter` | Сервисы не зависят от полного `JpaRepository` |
+| `repository/UserReader.java`, `UserWriter.java` | Контракты чтения и записи пользователей | Сервисы получают нужные методы и не зависят от Spring Data |
 | `service/JwtService.java` | Подписывает и проверяет JWT | Имя пользователя, тип, срок, подпись, ключ |
 | `controller/AuthController.java` | `/api/auth/register`, login, refresh, me | Тела запросов, ответы и публичные/защищённые адреса |
 | `security/JwtFilter.java` | Читает Bearer и устанавливает текущего пользователя | Где проверяется access, как роль попадает в SecurityContext |
 | `security/SecurityConfig.java` | Задаёт правила доступа | Публичные адреса, права USER/ADMIN, отсутствие серверной сессии |
 | `security/SecurityErrors.java` | JSON для 401 и 403 | Почему нужен отдельный обработчик ошибок фильтров |
 | `security/AdminInitializer.java` | Передаёт настройки окружения в `AdministratorAccounts` | Сам не проверяет пароли и не обращается в БД |
+| `exception/ApiException.java`, `GlobalExceptionHandler.java`, `InvalidTokenException.java` | Ошибки сценариев, их обработка и ошибки токенов | Статусы 400/401/403/409/422, обработка ограничений БД, отличие фильтров от MVC |
+| `dto/ApiError.java` | Общий формат ответа об ошибке | Поля error.message и error.details |
 
 На frontend второй участник должен знать `login.html`, `js/auth.js` и токены в `js/storage.js`. В `js/index.js` скрываются кнопки изменения для USER, в `js/form.js` проверяется роль перед показом формы. Это удобство интерфейса, а реальную защиту выполняет backend.
 
@@ -220,21 +263,21 @@ POST `/api/auth/refresh` принимает refreshToken. Сервис пров�
 
 | Файл в корне | Назначение |
 |---|---|
-| `pom.xml` | Зависимости и сборка Maven; целевая Java 17 |
+| `../pom.xml` | Зависимости и сборка Maven; целевая Java 17 |
 | `.env` | Локальные настройки и пароль администратора, пример находится в README |
 | `README.md` | Инструкция запуска в IntelliJ IDEA и пример конфигурации по ТЗ |
-| `src/main/resources/application.properties` | Настройки Spring и чтение переменных окружения |
-| `Dockerfile` | Сборка Java-приложения и создание образа для запуска |
-| `compose.yaml` | Контейнер, порт, переменные и постоянный том БД |
-| `.dockerignore` | Исключает секреты, локальную БД, Git и результаты сборки из контекста образа |
-| `.gitignore` | Не даёт случайно добавить `.env`, БД и результаты сборки в Git |
-| `docs/students.postman_collection.json` | Демонстрационные запросы и проверки двух ролей |
+| `../src/main/resources/application.properties` | Настройки Spring и чтение переменных окружения |
+| `../Dockerfile` | Сборка Java-приложения и создание образа для запуска |
+| `../compose.yaml` | Контейнер, порт, переменные и постоянный том БД |
+| `../.dockerignore` | Исключает секреты, локальную БД, Git и результаты сборки из контекста образа |
+| `../.gitignore` | Не даёт случайно добавить `.env`, БД и результаты сборки в Git |
+| `../docs/students.postman_collection.json` | Демонстрационные запросы и проверки двух ролей |
 
 Перед первым запуском создать `.env` по примеру из README, задать JWT_SECRET и ADMIN_PASSWORD. Если `.env` уже есть, использовать его. Ключ — минимум 32 байта. Администратор создаётся при первом запуске; при повторных запусках его пароль сверяется с ADMIN_PASSWORD и обновляется, если значение изменилось. В БД по-прежнему хранится только BCrypt-хеш. Для смены пароля изменить ADMIN_PASSWORD в `.env` и перезапустить приложение. Пароль — от 6 до 40 символов и не более 72 байт UTF-8; данные студентов сохраняются.
 
-Без контейнера открыть `pom.xml` как проект в IntelliJ IDEA, выбрать JDK 17–25 и дождаться загрузки зависимостей Maven. Затем открыть `StudentsApplication.java` и запустить метод `main` зелёным треугольником.
+Без контейнера открыть `../pom.xml` как проект в IntelliJ IDEA, выбрать JDK 17–25 и дождаться загрузки зависимостей Maven. Затем открыть `StudentsApplication.java` и запустить метод `main` зелёным треугольником.
 
-В настройках Maven выбрать Bundled Maven. Рабочая папка запуска — корень `web_3`, где находятся `.env` и `pom.xml`. Остановка — кнопкой Stop в окне запуска. Подробная инструкция находится в README.
+В настройках Maven выбрать Bundled Maven. Рабочая папка запуска — корень `web_3`, где находятся `.env` и `../pom.xml`. Остановка — кнопкой Stop в окне запуска. Подробная инструкция находится в README.
 
 С установленным и запущенным Docker:
 
@@ -252,7 +295,7 @@ Dockerfile имеет два этапа. Первый содержит Maven и 
 
 В Compose только один сервис: app. H2 находится внутри контейнера как файл `/app/data/students.mv.db`. Каталог `/app/data` подключён к именованному тому students-data. Том сохраняет студентов и пользователей после удаления и создания контейнера. `docker compose down` сохраняет том; добавление `-v` удалит его вместе с данными.
 
-Локальный файл `data/students.mv.db` и том Docker — разные хранилища. Существующая локальная БД не копируется в образ. Первое открытие контейнерного приложения может показать пустой список — это новая БД.
+Локальный файл `../data/students.mv.db` и том Docker — разные хранилища. Существующая локальная БД не копируется в образ. Первое открытие контейнерного приложения может показать пустой список — это новая БД.
 
 `.env` передаётся при запуске контейнера и не копируется в образ. Порт приложения внутри контейнера — 8080; SERVER_PORT задаёт внешний порт на хосте. Публикация настроена только на localhost.
 
