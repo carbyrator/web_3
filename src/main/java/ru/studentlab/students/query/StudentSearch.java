@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Проверенные неизменяемые критерии, общие для сервиса и хранилища. */
+// Проверенные неизменяемые критерии, общие для сервиса и хранилища
 public record StudentSearch(Map<String, String> filters, String sortField,
                             String sortDirection, Integer page, int size) {
     public StudentSearch {
