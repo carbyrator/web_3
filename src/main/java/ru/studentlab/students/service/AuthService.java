@@ -12,7 +12,7 @@ import ru.studentlab.students.model.User;
 import ru.studentlab.students.repository.UserReader;
 import ru.studentlab.students.service.port.*;
 
-// Проверяем учётные данные и обновляем вход через абстракции токенов
+// Проверяем учtтные данные и обновляем вход через абстракции токенов
 @Service
 @Transactional(readOnly = true)
 public class AuthService implements Authentication {
