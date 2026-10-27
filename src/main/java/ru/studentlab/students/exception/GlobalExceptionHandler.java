@@ -18,7 +18,7 @@ import java.util.Map;
 public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    // Для наших ошибок берём статус и пояснения из исключения
+    // Для ошибок берем статус и пояснения из исключения
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApi(ApiException error, HttpServletRequest request) {
         log.warn("{} {}: {} ({})", request.getMethod(), request.getRequestURI(),
@@ -27,13 +27,13 @@ public class GlobalExceptionHandler {
                 .body(new ApiError(error.getMessage(), error.getDetails()));
     }
 
-    // Повреждённый JSON возвращаем как ошибку 400
+    // Поврежденный JSON возвращаем как 400
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiError> handleJson(HttpMessageNotReadableException error) {
         return ResponseEntity.badRequest().body(new ApiError("Ожидался корректный JSON-объект", Map.of()));
     }
 
-    // Текст вместо числового ИСУ в адресе тоже даёт ошибку 400
+    // Текст вместо числового ИСУ в адресе тоже дает 400
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiError> handleType(MethodArgumentTypeMismatchException error) {
         return ResponseEntity.badRequest().body(new ApiError("Некорректный параметр адреса",
@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
     // Ограничения базы защищают данные и при одновременных запросах
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleConflict(DataIntegrityViolationException error) {
-        // UNIQUE в БД защищает от одновременного создания одинаковых ИСУ, имён и email
+        // UNIQUE в БД защищает от одновременного создания одинаковых ИСУ, имен и email
         log.warn("Конфликт ограничения базы данных");
         return ResponseEntity.status(409).body(new ApiError("Конфликт данных",
                 Map.of()));
@@ -52,7 +52,7 @@ public class GlobalExceptionHandler {
     // Для остальных ошибок сохраняем статус Spring либо возвращаем 500
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleOther(Exception error, HttpServletRequest request) {
-        // Сюда также попадают стандартные ошибки Spring: 404, 405 и 415
+        // Сюда также попадают стандартные ошибки Spring (404, 405 и 415)
         if (error instanceof ErrorResponse) {
             ErrorResponse response = (ErrorResponse) error;
             return ResponseEntity.status(response.getStatusCode()).headers(response.getHeaders())
