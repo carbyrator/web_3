@@ -4,7 +4,7 @@ import org.springframework.stereotype.Component;
 import ru.studentlab.students.dto.StudentDto;
 import ru.studentlab.students.model.Student;
 
-/** Только преобразование данных; без поиска, проверок и сохранения. */
+// Только преобразование данных без поиска, проверок и сохранения
 @Component
 public class StudentMapper {
     public StudentDto toDto(Student student) {
