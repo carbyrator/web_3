@@ -3,7 +3,7 @@ package ru.studentlab.students.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 
-// Данные студента для JSON, внутренний номер записи в ответ не передаём
+// Данные студента для JSON
 @Schema(requiredProperties = {"name", "group", "isu", "dorm", "room", "expDate", "foreigner"})
 public class StudentDto {
     @Schema(example = "Иван Иванов")
@@ -22,7 +22,7 @@ public class StudentDto {
     public StudentDto() {
     }
 
-    // Независимая копия для проверки PATCH без изменения исходных данных
+    // Независимая копия для проверки PATCH
     public StudentDto(StudentDto student) {
         name = student.name;
         group = student.group;
