@@ -14,14 +14,14 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
-// Создаём и проверяем подписанные токены
+// Создаем и проверяем подписанные токены
 @Service
 public class JwtService implements TokenIssuer, AccessTokenReader, RefreshTokenReader {
     private final long accessExpiration;
     private final long refreshExpiration;
     private final SecretKey key;
 
-    // Один раз создаём ключ и проверяем сроки токенов при запуске
+    // Один раз создаем ключ и проверяем сроки токенов при запуске
     public JwtService(@Value("${app.jwt.secret}") String secret,
                       @Value("${app.jwt.access-token-expiration}") long accessExpiration,
                       @Value("${app.jwt.refresh-token-expiration}") long refreshExpiration) {
@@ -38,12 +38,12 @@ public class JwtService implements TokenIssuer, AccessTokenReader, RefreshTokenR
         return accessExpiration / 1000;
     }
 
-    // Создаём токен для обращения к защищённым адресам
+    // Создаем токен для обращения к защищённым адресам
     private String generateAccessToken(String username) {
         return buildToken(username, accessExpiration, "access");
     }
 
-    // Создаём токен для продления входа без повторного ввода пароля
+    // Создаем токен для продления входа без повторного ввода пароля
     private String generateRefreshToken(String username) {
         return buildToken(username, refreshExpiration, "refresh");
     }
