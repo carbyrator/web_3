@@ -2,7 +2,7 @@ package ru.studentlab.students.model;
 
 import jakarta.persistence.*;
 
-// Храним учётные записи, роли и хеши паролей в таблице app_users
+// Храним учетные записи, роли и хеши паролей в таблице app_users
 @Entity
 @Table(name = "app_users")
 public class User {
